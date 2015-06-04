@@ -15869,6 +15869,25 @@ SDValue X86TargetLowering::LowerRETURNADDR(SDValue Op,
                      RetAddrFI, MachinePointerInfo(), false, false, false, 0);
 }
 
+SDValue X86TargetLowering::LowerSETRETURNADDR(SDValue Op,
+                                              SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
+  int ReturnAddrIndex = FuncInfo->getRAIndex();
+
+  // Operand 0 is Chain?
+  // http://llvm.org/docs/CodeGenerator.html#introduction-to-selectiondags
+  SDValue newRetAddr = Op.getOperand(1);
+  SDLoc dl(Op);
+  SDValue Chain = DAG.getEntryNode();
+
+  // Store new value for return address.
+  SDValue RetAddrFI = getReturnAddressFrameIndex(DAG);
+  return DAG.getStore(Chain, dl, newRetAddr, RetAddrFI,
+                      MachinePointerInfo::getFixedStack(ReturnAddrIndex),
+                      false, false, 0);
+}
+
 SDValue X86TargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo *MFI = MF.getFrameInfo();
@@ -17915,6 +17934,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::INTRINSIC_VOID:
   case ISD::INTRINSIC_W_CHAIN:  return LowerINTRINSIC_W_CHAIN(Op, Subtarget, DAG);
   case ISD::RETURNADDR:         return LowerRETURNADDR(Op, DAG);
+  case ISD::SETRETURNADDR:      return LowerSETRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:          return LowerFRAMEADDR(Op, DAG);
   case ISD::FRAME_TO_ARGS_OFFSET:
                                 return LowerFRAME_TO_ARGS_OFFSET(Op, DAG);

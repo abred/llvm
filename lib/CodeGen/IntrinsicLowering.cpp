@@ -425,6 +425,7 @@ void IntrinsicLowering::LowerIntrinsicCall(CallInst *CI) {
   }
     
   case Intrinsic::returnaddress:
+  case Intrinsic::setreturnaddress:
   case Intrinsic::frameaddress:
     errs() << "WARNING: this target does not support the llvm."
            << (Callee->getIntrinsicID() == Intrinsic::returnaddress ?

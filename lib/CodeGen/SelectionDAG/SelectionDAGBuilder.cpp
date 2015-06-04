@@ -4062,6 +4062,11 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     setValue(&I, DAG.getNode(ISD::RETURNADDR, sdl, TLI.getPointerTy(),
                              getValue(I.getArgOperand(0))));
     return nullptr;
+  case Intrinsic::setreturnaddress:
+    DAG.setRoot(DAG.getNode(ISD::SETRETURNADDR, getCurSDLoc(),
+			    MVT::Other, getRoot(),
+			    getValue(I.getArgOperand(0))));
+    return nullptr;
   case Intrinsic::frameaddress:
     setValue(&I, DAG.getNode(ISD::FRAMEADDR, sdl, TLI.getPointerTy(),
                              getValue(I.getArgOperand(0))));
