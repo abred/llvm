@@ -1,0 +1,111 @@
+Failing tests
+=============
+
+When the -frepl-return flag is used during test execution, there are 11
+additional unexpected failures. 5 of them are llvm tests.
+
+
+Test 1/2/3: AddressSanitizer-x86_64-linux :: TestCases/Posix/coverage-sandboxing.cc
+----------------------------------------
+not sure about this one. An additional *PC* is written, could be because of
+added code (also fails for i686 and i383(
+
+Test output:
+******************** TEST 'AddressSanitizer-x86_64-linux :: TestCases/Posix/coverage-sandboxing.cc' FAILED ********************
+Script:
+--
+/home/user/llvm/build/./bin/clang --driver-mode=g++ -fsanitize=address -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer -fno-optimize-sibling-calls -gline-tables-only -m64 -fsanitize-coverage=bb -DSHARED /home/user/llvm/projects/compiler-rt/test/asan/TestCases/Posix/coverage-sandboxing.cc -shared -o /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/lib$(basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp).dynamic.so -fPIC
+/home/user/llvm/build/./bin/clang --driver-mode=g++ -fsanitize=address -mno-omit-leaf-frame-pointer -fno-omit-frame-pointer -fno-optimize-sibling-calls -gline-tables-only -m64 -fsanitize-coverage=func /home/user/llvm/projects/compiler-rt/test/asan/TestCases/Posix/coverage-sandboxing.cc -o /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp -Wl,-rpath,\$ORIGIN -L/home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output -l$(basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp).dynamic
+export ASAN_OPTIONS=coverage=1:verbosity=1
+rm -rf /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage_sandboxing_test
+mkdir /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage_sandboxing_test && cd /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage_sandboxing_test
+mkdir vanilla && cd vanilla
+/home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp 2>&1         | FileCheck /home/user/llvm/projects/compiler-rt/test/asan/TestCases/Posix/coverage-sandboxing.cc --check-prefix=CHECK-vanilla
+mkdir ../sandbox1 && cd ../sandbox1
+/home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp a 2>&1       | FileCheck /home/user/llvm/projects/compiler-rt/test/asan/TestCases/Posix/coverage-sandboxing.cc --check-prefix=CHECK-sandbox
+/usr/bin/python2.7 /home/user/llvm/projects/compiler-rt/lib/sanitizer_common/scripts/sancov.py  unpack coverage_sandboxing_test.sancov.packed
+mkdir ../sandbox2 && cd ../sandbox2
+/home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp a b 2>&1     | FileCheck /home/user/llvm/projects/compiler-rt/test/asan/TestCases/Posix/coverage-sandboxing.cc --check-prefix=CHECK-sandbox
+/usr/bin/python2.7 /home/user/llvm/projects/compiler-rt/lib/sanitizer_common/scripts/sancov.py  unpack coverage_sandboxing_test.sancov.packed
+cd ..
+/usr/bin/python2.7 /home/user/llvm/projects/compiler-rt/lib/sanitizer_common/scripts/sancov.py  print vanilla/`basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/lib$(basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp).dynamic.so`*.sancov > vanilla.txt
+/usr/bin/python2.7 /home/user/llvm/projects/compiler-rt/lib/sanitizer_common/scripts/sancov.py  print sandbox1/`basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/lib$(basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp).dynamic.so`*.sancov > sandbox1.txt
+/usr/bin/python2.7 /home/user/llvm/projects/compiler-rt/lib/sanitizer_common/scripts/sancov.py  print sandbox2/`basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/lib$(basename /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage-sandboxing.cc.tmp).dynamic.so`*.sancov > sandbox2.txt
+diff vanilla.txt sandbox1.txt
+diff vanilla.txt sandbox2.txt
+rm -r /home/user/llvm/build/projects/compiler-rt/test/asan/X86_64LinuxConfig/TestCases/Posix/Output/coverage_sandboxing_test
+--
+Exit Code: 1
+
+Command Output (stderr):
+--
+/home/user/llvm/projects/compiler-rt/test/asan/TestCases/Posix/coverage-sandboxing.cc:81:19: error: expected string not found in input
+// CHECK-vanilla: .so.[[PID]].sancov: 258 PCs written
+                  ^
+<stdin>:284:1: note: scanning from here
+==20779== CovDump: ./libcoverage-sandboxing.cc.tmp.dynamic.so.20779.sancov: 259 PCs written
+^
+<stdin>:284:1: note: with variable "PID" equal to "20779"
+==20779== CovDump: ./libcoverage-sandboxing.cc.tmp.dynamic.so.20779.sancov: 259 PCs written
+^
+<stdin>:284:61: note: possible intended match here
+==20779== CovDump: ./libcoverage-sandboxing.cc.tmp.dynamic.so.20779.sancov: 259 PCs written
+                                                            ^
+
+
+Test 4: UBSan-MSan-x86_64 :: TestCases/Misc/Linux/ubsan_options.cc
+----------------------------------------
+Could be an issue. Seg faults! MemorySanitizer is introducing a lot of
+additional code, maybe there are conflicts. Deeper analysis would be neccessary
+
+Test output:
+********************
+FAIL: UBSan-MSan-x86_64 :: TestCases/Misc/Linux/ubsan_options.cc (24646 of 24800)
+******************** TEST 'UBSan-MSan-x86_64 :: TestCases/Misc/Linux/ubsan_options.cc' FAILED ********************
+Script:
+--
+/home/user/llvm/build/./bin/clang --driver-mode=g++ -fsanitize=memory -m64 -fsanitize=integer -fsanitize-recover=integer /home/user/llvm/projects/compiler-rt/test/ubsan/TestCases/Misc/Linux/ubsan_options.cc -o /home/user/llvm/build/projects/compiler-rt/test/ubsan/MemorySanitizer-x86_64/TestCases/Misc/Linux/Output/ubsan_options.cc.tmp
+not /home/user/llvm/build/projects/compiler-rt/test/ubsan/MemorySanitizer-x86_64/TestCases/Misc/Linux/Output/ubsan_options.cc.tmp 2>&1 | FileCheck /home/user/llvm/projects/compiler-rt/test/ubsan/TestCases/Misc/Linux/ubsan_options.cc
+--
+Exit Code: 1
+
+Command Output (stderr):
+--
+/home/user/llvm/projects/compiler-rt/test/ubsan/TestCases/Misc/Linux/ubsan_options.cc:15:12: error: expected string not found in input
+ // CHECK: ubsan_options.cc:[[@LINE-1]]:44: runtime error: unsigned integer overflow
+           ^
+<stdin>:1:1: note: scanning from here
+Error: Segmentation fault (core dumped)
+^
+<stdin>:1:1: note: with expression "@LINE-1" equal to "14"
+Error: Segmentation fault (core dumped)
+^
+
+
+Test 5: UBSan-TSan-x86_64 :: TestCases/Misc/Linux/ubsan_options.cc
+----------------------------------------
+Could be an issue. Seg faults! ThreadSanitizer is introducing a lot of
+additional code, maybe there are conflicts. Deeper analysis would be neccessary
+
+Test output:
+********************
+FAIL: UBSan-TSan-x86_64 :: TestCases/Misc/Linux/ubsan_options.cc (24774 of 24800)
+******************** TEST 'UBSan-TSan-x86_64 :: TestCases/Misc/Linux/ubsan_options.cc' FAILED ********************
+Script:
+--
+/home/user/llvm/build/./bin/clang --driver-mode=g++ -fsanitize=thread -m64 -fsanitize=integer -fsanitize-recover=integer /home/user/llvm/projects/compiler-rt/test/ubsan/TestCases/Misc/Linux/ubsan_options.cc -o /home/user/llvm/build/projects/compiler-rt/test/ubsan/ThreadSanitizer-x86_64/TestCases/Misc/Linux/Output/ubsan_options.cc.tmp
+not /home/user/llvm/build/projects/compiler-rt/test/ubsan/ThreadSanitizer-x86_64/TestCases/Misc/Linux/Output/ubsan_options.cc.tmp 2>&1 | FileCheck /home/user/llvm/projects/compiler-rt/test/ubsan/TestCases/Misc/Linux/ubsan_options.cc
+--
+Exit Code: 1
+
+Command Output (stderr):
+--
+/home/user/llvm/projects/compiler-rt/test/ubsan/TestCases/Misc/Linux/ubsan_options.cc:15:12: error: expected string not found in input
+ // CHECK: ubsan_options.cc:[[@LINE-1]]:44: runtime error: unsigned integer overflow
+           ^
+<stdin>:1:1: note: scanning from here
+Error: Segmentation fault (core dumped)
+^
+<stdin>:1:1: note: with expression "@LINE-1" equal to "14"
+Error: Segmentation fault (core dumped)
+^
