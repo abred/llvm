@@ -4060,12 +4060,11 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::vacopy:   visitVACopy(I); return nullptr;
   case Intrinsic::returnaddress:
     setValue(&I, DAG.getNode(ISD::RETURNADDR, sdl, TLI.getPointerTy(),
-                             getValue(I.getArgOperand(0))));
+                             getValue(I.getArgOperand(0)), getRoot()));
     return nullptr;
   case Intrinsic::setreturnaddress:
-    DAG.setRoot(DAG.getNode(ISD::SETRETURNADDR, getCurSDLoc(),
-			    MVT::Other, getRoot(),
-			    getValue(I.getArgOperand(0))));
+    DAG.setRoot(DAG.getNode(ISD::SETRETURNADDR, sdl, MVT::Other, getRoot(),
+                            getValue(I.getArgOperand(0))));
     return nullptr;
   case Intrinsic::frameaddress:
     setValue(&I, DAG.getNode(ISD::FRAMEADDR, sdl, TLI.getPointerTy(),

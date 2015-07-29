@@ -15843,8 +15843,9 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget *Subtarget,
 
 SDValue X86TargetLowering::LowerRETURNADDR(SDValue Op,
                                            SelectionDAG &DAG) const {
-  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
-  MFI->setReturnAddressIsTaken(true);
+  MachineFunction &MF = DAG.getMachineFunction();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
 
   if (verifyReturnAddressArgumentIsConstant(Op, DAG))
     return SDValue();
@@ -15865,24 +15866,26 @@ SDValue X86TargetLowering::LowerRETURNADDR(SDValue Op,
 
   // Just load the return address.
   SDValue RetAddrFI = getReturnAddressFrameIndex(DAG);
-  return DAG.getLoad(PtrVT, dl, DAG.getEntryNode(),
-                     RetAddrFI, MachinePointerInfo(), false, false, false, 0);
+  int ReturnAddrIndex = FuncInfo->getRAIndex();
+  MFI->setReturnAddressIsTaken(true);
+
+  return DAG.getLoad(PtrVT, dl, Op.getOperand(1),
+                     RetAddrFI, MachinePointerInfo::getFixedStack(ReturnAddrIndex), false, false, false, 0);
 }
 
 SDValue X86TargetLowering::LowerSETRETURNADDR(SDValue Op,
                                               SelectionDAG &DAG) const {
   MachineFunction &MF = DAG.getMachineFunction();
   X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
-  int ReturnAddrIndex = FuncInfo->getRAIndex();
 
-  // Operand 0 is Chain?
-  // http://llvm.org/docs/CodeGenerator.html#introduction-to-selectiondags
   SDValue newRetAddr = Op.getOperand(1);
   SDLoc dl(Op);
-  SDValue Chain = DAG.getEntryNode();
+  SDValue Chain = Op.getOperand(0);
 
   // Store new value for return address.
   SDValue RetAddrFI = getReturnAddressFrameIndex(DAG);
+  int ReturnAddrIndex = FuncInfo->getRAIndex();
+
   return DAG.getStore(Chain, dl, newRetAddr, RetAddrFI,
                       MachinePointerInfo::getFixedStack(ReturnAddrIndex),
                       false, false, 0);
