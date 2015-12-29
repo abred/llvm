@@ -13,3 +13,5 @@ endif()
 add_llvm_loadable_module( LLVMReplicateReturn
   ReplicateReturn.cpp
   )
+
+add_dependencies(LLVMReplicateReturn intrinsics_gen)
