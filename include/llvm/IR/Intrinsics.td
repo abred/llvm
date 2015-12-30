@@ -354,6 +354,13 @@ def int_instrprof_value_profile : Intrinsic<[],
                                              llvm_i32_ty],
                                             []>;
 
+// load and store of a ptr, hidden behind a function call
+def int_load_ptr : Intrinsic<[llvm_anyptr_ty], [llvm_anyptr_ty],
+                             [IntrReadMem, ReadOnly<0>, NoCapture<0>]>;
+def int_store_ptr : Intrinsic<[], [llvm_anyptr_ty, llvm_anyptr_ty],
+                              [IntrArgMemOnly, ReadNone<0>, NoCapture<0>,
+                               NoCapture<1>]>;
+
 //===------------------- Standard C Library Intrinsics --------------------===//
 //
 

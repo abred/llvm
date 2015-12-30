@@ -4779,6 +4779,53 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
                              TLI.getPointerTy(DAG.getDataLayout()),
                              getValue(I.getArgOperand(0))));
     return nullptr;
+  case Intrinsic::load_ptr: {
+    SDValue Chain = getRoot();
+
+    Value  *PtrOperand = I.getArgOperand(0);
+    SDValue Ptr = getValue(PtrOperand);
+
+    EVT VT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+    unsigned Alignment = DAG.getEVTAlignment(VT);
+
+    AAMDNodes AAInfo;
+    I.getAAMetadata(AAInfo);
+    const MDNode *Ranges = I.getMetadata(LLVMContext::MD_range);
+
+    MachineMemOperand *MMO =
+        DAG.getMachineFunction().
+        getMachineMemOperand(MachinePointerInfo(PtrOperand),
+                             MachineMemOperand::MOLoad,  VT.getStoreSize(),
+                             Alignment, AAInfo, Ranges);
+
+    SDValue Load = DAG.getLoad(VT, sdl, Chain, Ptr, MMO);
+    SDValue OutChain = Load.getValue(1);
+    DAG.setRoot(OutChain);
+    setValue(&I, Load);
+    return nullptr;
+  }
+  case Intrinsic::store_ptr: {
+    SDValue Chain = getRoot();
+
+    Value  *PtrOperand = I.getArgOperand(1);
+    SDValue Ptr = getValue(PtrOperand);
+    SDValue Src = getValue(I.getArgOperand(0));
+    EVT VT = Src.getValueType();
+    unsigned Alignment = DAG.getEVTAlignment(VT);
+
+    AAMDNodes AAInfo;
+    I.getAAMetadata(AAInfo);
+
+    MachineMemOperand *MMO =
+        DAG.getMachineFunction().
+        getMachineMemOperand(MachinePointerInfo(PtrOperand),
+                             MachineMemOperand::MOStore,  VT.getStoreSize(),
+                             Alignment, AAInfo);
+    SDValue StoreNode = DAG.getStore(Chain, sdl, Src, Ptr, MMO);
+    DAG.setRoot(StoreNode);
+    setValue(&I, StoreNode);
+    return nullptr;
+  }
   case Intrinsic::read_register: {
     Value *Reg = I.getArgOperand(0);
     SDValue Chain = getRoot();
