@@ -319,6 +319,13 @@ def int_instrprof_increment : Intrinsic<[],
                                          llvm_i32_ty, llvm_i32_ty],
                                         []>;
 
+// load and store of a ptr, hidden behind a function call
+def int_load_ptr : Intrinsic<[llvm_anyptr_ty], [llvm_anyptr_ty],
+                             [IntrReadArgMem, ReadOnly<0>, NoCapture<0>]>;
+def int_store_ptr : Intrinsic<[], [llvm_anyptr_ty, llvm_anyptr_ty],
+                              [IntrReadWriteArgMem, ReadNone<0>, NoCapture<0>,
+                               NoCapture<1>]>;
+
 //===------------------- Standard C Library Intrinsics --------------------===//
 //
 

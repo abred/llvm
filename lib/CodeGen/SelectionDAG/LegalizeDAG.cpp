@@ -1275,6 +1275,8 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
   case ISD::ADJUST_TRAMPOLINE:
   case ISD::FRAMEADDR:
   case ISD::RETURNADDR:
+  case ISD::LOAD_PTR:
+  case ISD::STORE_PTR:
     // These operations lie about being legal: when they claim to be legal,
     // they should actually be custom-lowered.
     Action = TLI.getOperationAction(Node->getOpcode(), Node->getValueType(0));
