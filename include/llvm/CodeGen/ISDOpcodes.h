@@ -72,6 +72,12 @@ namespace ISD {
     /// the parent's frame or return address, and so on.
     FRAMEADDR, RETURNADDR,
 
+    /// LOAD_PTR, STORE_PTR - Represent the llvm.load.ptr and llvm.store.ptr
+    /// intrinsics. llvm.load.ptr takes one pointer operand and returns the
+    /// value at that location. llvm.store.ptr takes two operands and stores the
+    /// value of the first one at the location of the second one.
+    LOAD_PTR, STORE_PTR,
+
     /// LOCAL_RECOVER - Represents the llvm.localrecover intrinsic.
     /// Materializes the offset from the local object pointer of another
     /// function to a particular local object passed to llvm.localescape. The
