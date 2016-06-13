@@ -15900,12 +15900,33 @@ SDValue X86TargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
   assert(((FrameReg == X86::RBP && VT == MVT::i64) ||
           (FrameReg == X86::EBP && VT == MVT::i32)) &&
          "Invalid Frame Register!");
-  SDValue FrameAddr = DAG.getCopyFromReg(DAG.getEntryNode(), dl, FrameReg, VT);
+  SDValue FrameAddr = DAG.getCopyFromReg(Op.getOperand(1), dl, FrameReg, VT);
   while (Depth--)
     FrameAddr = DAG.getLoad(VT, dl, DAG.getEntryNode(), FrameAddr,
                             MachinePointerInfo(),
                             false, false, false, 0);
   return FrameAddr;
+}
+
+SDValue X86TargetLowering::LowerSETFRAMEADDR(SDValue Op,
+                                             SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  const X86RegisterInfo *RegInfo = Subtarget->getRegisterInfo();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  MFI->setFrameAddressIsTaken(true);
+
+  SDValue newFrameAddr = Op.getOperand(1);
+  SDLoc dl(Op);
+  SDValue Chain = Op.getOperand(0);
+
+  unsigned FrameReg =
+    RegInfo->getPtrSizedFrameRegister(DAG.getMachineFunction());
+  assert((FrameReg == X86::RBP || FrameReg == X86::EBP) &&
+         "Invalid Frame Register!");
+  SDValue FrameAddr = DAG.getCopyFromReg(DAG.getEntryNode(), dl, FrameReg, getPointerTy());
+  return DAG.getStore(Chain, dl, newFrameAddr, FrameAddr,
+                      MachinePointerInfo(),
+                      false, false, 0);
 }
 
 // FIXME? Maybe this could be a TableGen attribute on some registers and
@@ -17916,6 +17937,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::INTRINSIC_W_CHAIN:  return LowerINTRINSIC_W_CHAIN(Op, Subtarget, DAG);
   case ISD::RETURNADDR:         return LowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:          return LowerFRAMEADDR(Op, DAG);
+  case ISD::SETFRAMEADDR:       return LowerSETFRAMEADDR(Op, DAG);
   case ISD::FRAME_TO_ARGS_OFFSET:
                                 return LowerFRAME_TO_ARGS_OFFSET(Op, DAG);
   case ISD::DYNAMIC_STACKALLOC: return LowerDYNAMIC_STACKALLOC(Op, DAG);

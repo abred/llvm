@@ -4064,7 +4064,11 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     return nullptr;
   case Intrinsic::frameaddress:
     setValue(&I, DAG.getNode(ISD::FRAMEADDR, sdl, TLI.getPointerTy(),
-                             getValue(I.getArgOperand(0))));
+                             getValue(I.getArgOperand(0)), getRoot()));
+    return nullptr;
+  case Intrinsic::setframeaddress:
+    DAG.setRoot(DAG.getNode(ISD::SETFRAMEADDR, sdl, MVT::Other, getRoot(),
+                            getValue(I.getArgOperand(0))));
     return nullptr;
   case Intrinsic::read_register: {
     Value *Reg = I.getArgOperand(0);

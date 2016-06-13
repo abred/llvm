@@ -1260,6 +1260,7 @@ void SelectionDAGLegalize::LegalizeOp(SDNode *Node) {
   case ISD::INIT_TRAMPOLINE:
   case ISD::ADJUST_TRAMPOLINE:
   case ISD::FRAMEADDR:
+  case ISD::SETFRAMEADDR:
   case ISD::RETURNADDR:
     // These operations lie about being legal: when they claim to be legal,
     // they should actually be custom-lowered.

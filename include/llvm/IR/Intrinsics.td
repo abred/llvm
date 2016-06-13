@@ -268,6 +268,7 @@ def int_gcwrite : Intrinsic<[],
 //
 def int_returnaddress : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty], [IntrNoMem]>;
 def int_frameaddress  : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty], [IntrNoMem]>;
+def int_setframeaddress : Intrinsic<[], [llvm_ptr_ty], [ReadNone<0>]>;
 def int_frameescape : Intrinsic<[], [llvm_vararg_ty]>;
 def int_framerecover : Intrinsic<[llvm_ptr_ty],
                                  [llvm_ptr_ty, llvm_ptr_ty, llvm_i32_ty],
