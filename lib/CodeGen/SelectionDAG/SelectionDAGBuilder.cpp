@@ -4058,14 +4058,21 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::vastart:  visitVAStart(I); return nullptr;
   case Intrinsic::vaend:    visitVAEnd(I); return nullptr;
   case Intrinsic::vacopy:   visitVACopy(I); return nullptr;
-  case Intrinsic::returnaddress:
-    setValue(&I, DAG.getNode(ISD::RETURNADDR, sdl, TLI.getPointerTy(),
-                             getValue(I.getArgOperand(0)), getRoot()));
+  case Intrinsic::returnaddress: {
+    SDVTList VT = DAG.getVTList(TLI.getPointerTy(), MVT::Other);
+    SDValue ra = DAG.getNode(ISD::RETURNADDR, sdl, VT,
+                             getValue(I.getArgOperand(0)), getRoot());
+    setValue(&I,ra);
+    DAG.setRoot(ra.getValue(1));
     return nullptr;
-  case Intrinsic::setreturnaddress:
-    DAG.setRoot(DAG.getNode(ISD::SETRETURNADDR, sdl, MVT::Other, getRoot(),
-                            getValue(I.getArgOperand(0))));
+  }
+  case Intrinsic::setreturnaddress: {
+    SDValue sra = DAG.getNode(ISD::SETRETURNADDR, sdl, MVT::Other, getRoot(),
+                              getValue(I.getArgOperand(0)));
+    setValue(&I, sra);
+    DAG.setRoot(sra.getValue(0));
     return nullptr;
+  }
   case Intrinsic::frameaddress:
     setValue(&I, DAG.getNode(ISD::FRAMEADDR, sdl, TLI.getPointerTy(),
                              getValue(I.getArgOperand(0))));
