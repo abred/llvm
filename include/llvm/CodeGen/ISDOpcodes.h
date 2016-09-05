@@ -72,6 +72,11 @@ namespace ISD {
     /// the parent's frame or return address, and so on.
     FRAMEADDR, RETURNADDR,
 
+    /// SETRETURNADDR - Represents the llvm.setreturnaddr on the DAG. Takes
+    /// one operand, the new return address. Only the return address of the
+    /// current function can be set.
+    SETRETURNADDR,
+
     /// LOCAL_RECOVER - Represents the llvm.localrecover intrinsic.
     /// Materializes the offset from the local object pointer of another
     /// function to a particular local object passed to llvm.localescape. The
