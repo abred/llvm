@@ -72,6 +72,11 @@ namespace ISD {
     /// the parent's frame or return address, and so on.
     FRAMEADDR, RETURNADDR,
 
+    /// SETRETURNADDR - Represents the llvm.setreturnaddr on the DAG. Takes
+    /// one operand, the new return address. Only the return address of the
+    /// current function can be set.
+    SETRETURNADDR,
+
     /// LOAD_PTR, STORE_PTR - Represent the llvm.load.ptr and llvm.store.ptr
     /// intrinsics. llvm.load.ptr takes one pointer operand and returns the
     /// value at that location. llvm.store.ptr takes two operands and stores the
