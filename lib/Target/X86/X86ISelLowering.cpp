@@ -16253,8 +16253,9 @@ static SDValue LowerINTRINSIC_W_CHAIN(SDValue Op, const X86Subtarget *Subtarget,
 
 SDValue X86TargetLowering::LowerRETURNADDR(SDValue Op,
                                            SelectionDAG &DAG) const {
-  MachineFrameInfo *MFI = DAG.getMachineFunction().getFrameInfo();
-  MFI->setReturnAddressIsTaken(true);
+  MachineFunction &MF = DAG.getMachineFunction();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
 
   if (verifyReturnAddressArgumentIsConstant(Op, DAG))
     return SDValue();
@@ -16275,8 +16276,29 @@ SDValue X86TargetLowering::LowerRETURNADDR(SDValue Op,
 
   // Just load the return address.
   SDValue RetAddrFI = getReturnAddressFrameIndex(DAG);
-  return DAG.getLoad(PtrVT, dl, DAG.getEntryNode(),
-                     RetAddrFI, MachinePointerInfo(), false, false, false, 0);
+  int ReturnAddrIndex = FuncInfo->getRAIndex();
+  MFI->setReturnAddressIsTaken(true);
+
+  return DAG.getLoad(PtrVT, dl, Op.getOperand(1),
+                     RetAddrFI, MachinePointerInfo::getFixedStack(ReturnAddrIndex), false, false, false, 0);
+}
+
+SDValue X86TargetLowering::LowerSETRETURNADDR(SDValue Op,
+                                              SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
+
+  SDValue newRetAddr = Op.getOperand(1);
+  SDLoc dl(Op);
+  SDValue Chain = Op.getOperand(0);
+
+  // Store new value for return address.
+  SDValue RetAddrFI = getReturnAddressFrameIndex(DAG);
+  int ReturnAddrIndex = FuncInfo->getRAIndex();
+
+  return DAG.getStore(Chain, dl, newRetAddr, RetAddrFI,
+                      MachinePointerInfo::getFixedStack(ReturnAddrIndex),
+                      false, false, 0);
 }
 
 SDValue X86TargetLowering::LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const {
@@ -18582,6 +18604,7 @@ SDValue X86TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   case ISD::INTRINSIC_VOID:
   case ISD::INTRINSIC_W_CHAIN:  return LowerINTRINSIC_W_CHAIN(Op, Subtarget, DAG);
   case ISD::RETURNADDR:         return LowerRETURNADDR(Op, DAG);
+  case ISD::SETRETURNADDR:      return LowerSETRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:          return LowerFRAMEADDR(Op, DAG);
   case ISD::FRAME_TO_ARGS_OFFSET:
                                 return LowerFRAME_TO_ARGS_OFFSET(Op, DAG);
