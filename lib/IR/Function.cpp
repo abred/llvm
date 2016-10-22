@@ -462,17 +462,17 @@ void Function::recalculateIntrinsicID() {
 /// Returns a stable mangling for the type specified for use in the name
 /// mangling scheme used by 'any' types in intrinsic signatures.  The mangling
 /// of named types is simply their name.  Manglings for unnamed types consist
-/// of a prefix ('p' for pointers, 'a' for arrays, 'f_' for functions)
-/// combined with the mangling of their component types.  A vararg function
-/// type will have a suffix of 'vararg'.  Since function types can contain
-/// other function types, we close a function type mangling with suffix 'f'
-/// which can't be confused with it's prefix.  This ensures we don't have
-/// collisions between two unrelated function types. Otherwise, you might
+/// of a prefix ('p' for pointers, 'a' for arrays, 's_' for structs, 'f_' for
+/// functions) combined with the mangling of their component types. A vararg
+/// function type will have a suffix of 'vararg'. Since function types can
+/// contain other function types, we close a function type mangling with
+/// suffix 'f' which can't be confused with it's prefix. This ensures we don't
+/// have collisions between two unrelated function types. Otherwise, you might
 /// parse ffXX as f(fXX) or f(fX)X.  (X is a placeholder for any other type.)
-/// Manglings of integers, floats, and vectors ('i', 'f', and 'v' prefix in most
-/// cases) fall back to the MVT codepath, where they could be mangled to
-/// 'x86mmx', for example; matching on derived types is not sufficient to mangle
-/// everything.
+/// The same goes for structs, with suffix 's'. Manglings of integers, floats,
+/// and vectors ('i', 'f', and 'v' prefix in most cases) fall back to the MVT
+/// codepath, where they could be mangled to 'x86mmx', for example; matching on
+/// derived types is not sufficient to mangle everything.
 static std::string getMangledTypeStr(Type* Ty) {
   std::string Result;
   if (PointerType* PTyp = dyn_cast<PointerType>(Ty)) {
@@ -482,8 +482,15 @@ static std::string getMangledTypeStr(Type* Ty) {
     Result += "a" + llvm::utostr(ATyp->getNumElements()) +
       getMangledTypeStr(ATyp->getElementType());
   } else if (StructType* STyp = dyn_cast<StructType>(Ty)) {
-    assert(!STyp->isLiteral() && "TODO: implement literal types");
-    Result += STyp->getName();
+    if(STyp->isLiteral()) {
+      Result += "s_";
+      for(auto e : STyp->elements()) {
+        Result += getMangledTypeStr(e);
+              }
+      Result += "s";
+    }
+    else
+      Result += STyp->getName();
   } else if (FunctionType* FT = dyn_cast<FunctionType>(Ty)) {
     Result += "f_" + getMangledTypeStr(FT->getReturnType());
     for (size_t i = 0; i < FT->getNumParams(); i++)
