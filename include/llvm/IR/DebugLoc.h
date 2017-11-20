@@ -1,3 +1,4 @@
+#include <string>
 //===- DebugLoc.h - Debug Location Information ------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -36,16 +37,20 @@ namespace llvm {
 
   public:
     DebugLoc() {}
-    DebugLoc(DebugLoc &&X) : Loc(std::move(X.Loc)) {}
-    DebugLoc(const DebugLoc &X) : Loc(X.Loc) {}
+  DebugLoc(DebugLoc &&X) : Loc(std::move(X.Loc)), metaData(X.metaData) {}
+  DebugLoc(const DebugLoc &X) : Loc(X.Loc), metaData(X.metaData) {}
     DebugLoc &operator=(DebugLoc &&X) {
       Loc = std::move(X.Loc);
+      metaData = X.metaData;
       return *this;
     }
     DebugLoc &operator=(const DebugLoc &X) {
       Loc = X.Loc;
+      metaData = X.metaData;
       return *this;
     }
+
+    std::string metaData;
 
     /// \brief Construct from an \a DILocation.
     DebugLoc(const DILocation *L);

@@ -1,3 +1,4 @@
+#include <iostream>
 //===-- FastISel.cpp - Implementation of the FastISel class ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -1353,6 +1354,9 @@ void FastISel::removeDeadLocalValueCode(MachineInstr *SavedLastLocalValue)
 }
 
 bool FastISel::selectInstruction(const Instruction *I) {
+  llvm::outs() << "fast";
+  I->print(llvm::outs());
+
   MachineInstr *SavedLastLocalValue = getLastLocalValue();
   // Just before the terminator instruction, insert instructions to
   // feed PHI nodes in successor blocks.
@@ -1378,7 +1382,9 @@ bool FastISel::selectInstruction(const Instruction *I) {
         return false;
 
   DbgLoc = I->getDebugLoc();
-
+  std::cout << "\nMD: " <<  std::string(I->getOpcodeName()) << std::endl;
+  DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
+  std::cout << "DD: " << DbgLoc.metaData << " " << &DbgLoc << std::endl;
   SavedInsertPt = FuncInfo.InsertPt;
 
   if (const auto *Call = dyn_cast<CallInst>(I)) {
@@ -1401,6 +1407,9 @@ bool FastISel::selectInstruction(const Instruction *I) {
   // First, try doing target-independent selection.
   if (!SkipTargetIndependentISel) {
     if (selectOperator(I, I->getOpcode())) {
+      llvm::outs() << "test";
+      I->print(llvm::outs());
+
       ++NumFastIselSuccessIndependent;
       DbgLoc = DebugLoc();
       return true;
@@ -1413,8 +1422,13 @@ bool FastISel::selectInstruction(const Instruction *I) {
   }
   // Next, try calling the target to attempt to handle the instruction.
   if (fastSelectInstruction(I)) {
+    llvm::outs() << "prod";
+    I->print(llvm::outs());
+
     ++NumFastIselSuccessTarget;
     DbgLoc = DebugLoc();
+    DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
+    // DbgLoc.metaData += cast<MDString>(I->getMetadata("my.md.name")->getOperand(0))->getString();
     return true;
   }
   // Remove dead code.

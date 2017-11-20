@@ -1,3 +1,4 @@
+#include <iostream>
 //===-- X86FastISel.cpp - X86 FastISel implementation ---------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -56,6 +57,8 @@ class X86FastISel final : public FastISel {
   /// When SSE2 is available, use it for f64 operations.
   bool X86ScalarSSEf64;
   bool X86ScalarSSEf32;
+
+  Instruction const* Inst;
 
 public:
   explicit X86FastISel(FunctionLoweringInfo &funcInfo,
@@ -485,12 +488,19 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     break;
   }
 
+  std::cout << "\nEE: " << DbgLoc.metaData << " " << &DbgLoc << std::endl;
   ResultReg = createResultReg(RC);
   MachineInstrBuilder MIB =
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc), ResultReg);
   addFullAddress(MIB, AM);
   if (MMO)
     MIB->addMemOperand(*FuncInfo.MF, MMO);
+  // MIB.addMetadata(llvm::MDNode::get(
+  //                   Inst->getContext(),
+  //                   llvm::MDString::get(
+  //                     Inst->getContext(),
+  //                     "testessttestblub\n")));
+
   return true;
 }
 
@@ -3398,6 +3408,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
 
 bool
 X86FastISel::fastSelectInstruction(const Instruction *I)  {
+  Inst = I;
   switch (I->getOpcode()) {
   default: break;
   case Instruction::Load:
