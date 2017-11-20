@@ -360,6 +360,8 @@ X86MCInstLower::LowerMachineOperand(const MachineInstr *MI,
   default:
     MI->dump();
     llvm_unreachable("unknown operand type");
+  case MachineOperand::MO_Metadata:
+    return None;
   case MachineOperand::MO_Register:
     // Ignore all implicit register operands.
     if (MO.isImplicit())

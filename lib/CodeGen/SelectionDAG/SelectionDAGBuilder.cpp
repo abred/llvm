@@ -1,3 +1,4 @@
+#include <string>
 //===-- SelectionDAGBuilder.cpp - Selection-DAG building ------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -976,6 +977,20 @@ void SelectionDAGBuilder::visit(const Instruction &I) {
 
   ++SDNodeOrder;
 
+  // SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  // SmallVector<StringRef, 8> MdNames;
+  // I.getAllMetadata(Mds);
+  // std::string md;
+  // DAG.getContext()->getMDKindNames(MdNames);
+  // for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+  //       II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+  //   md += MdNames[II->first];
+  //   llvm::outs() << "\nblub: " << MdNames[II->first] << "\n";
+  // }
+  // auto dl = I.getDebugLoc();
+  // dl.metaData = md;
+  // // Instruction In = I;
+  // I.setDebugLoc(dl);
   CurInst = &I;
 
   visit(I.getOpcode(), I);
@@ -4759,6 +4774,19 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   SDLoc sdl = getCurSDLoc();
   DebugLoc dl = getCurDebugLoc();
+  dl.metaData += "testthisvisitIntrin";
+  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  SmallVector<StringRef, 8> MdNames;
+  Mds.clear();
+  MdNames.clear();
+  I.getAllMetadata(Mds);
+  Context->getMDKindNames(MdNames);
+  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+    dl.metaData += MdNames[II->first];
+  }
+  sdl.setDebugLoc(dl);
   SDValue Res;
 
   switch (Intrinsic) {

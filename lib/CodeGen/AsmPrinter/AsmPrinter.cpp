@@ -1,3 +1,4 @@
+#include <iostream>
 //===-- AsmPrinter.cpp - Common AsmPrinter code ---------------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -634,6 +635,15 @@ static void emitComments(const MachineInstr &MI, raw_ostream &CommentOS) {
 
   const MachineFrameInfo *FrameInfo = MF->getFrameInfo();
 
+  // MI.print(CommentOS);
+  for (int i = 0; i < MI.getNumOperands(); i++) {
+    if (MI.getOperand(i).isMetadata()) {
+      auto LocMD = MI.getOperand(i).getMetadata();
+      LocMD->print(CommentOS);
+    }
+  }
+  std::cout << "md: " << MI.getDebugLoc().metaData  << " " << &MI.getDebugLoc() << std::endl;
+  CommentOS << MI.getDebugLoc().metaData << "\n";
   // We assume a single instruction only has a spill or reload, not
   // both.
   const MachineMemOperand *MMO;
@@ -915,6 +925,7 @@ void AsmPrinter::EmitFunctionBody() {
 
     EmitBasicBlockEnd(MBB);
   }
+  OutStreamer->AddComment("Does this work?");
 
   // If the function is empty and the object file uses .subsections_via_symbols,
   // then we need to emit *something* to the function body to prevent the

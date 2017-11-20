@@ -853,6 +853,7 @@ public:
   }
   unsigned getIROrder() const { return IROrder; }
   const DebugLoc &getDebugLoc() const { return DL; }
+  void setDebugLoc(DebugLoc const& dl) { DL = dl; }
 };
 
 
