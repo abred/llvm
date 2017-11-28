@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string>
 //===-- SelectionDAGBuilder.cpp - Selection-DAG building ------------------===//
 //
@@ -975,24 +976,28 @@ void SelectionDAGBuilder::visit(const Instruction &I) {
     HandlePHINodesInSuccessorBlocks(I.getParent());
   }
 
+  llvm::outs() << "\cvbn\n";
   ++SDNodeOrder;
 
-  // SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
-  // SmallVector<StringRef, 8> MdNames;
-  // I.getAllMetadata(Mds);
-  // std::string md;
-  // DAG.getContext()->getMDKindNames(MdNames);
-  // for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
-  //       II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-  //   md += MdNames[II->first];
-  //   llvm::outs() << "\nblub: " << MdNames[II->first] << "\n";
-  // }
-  // auto dl = I.getDebugLoc();
-  // dl.metaData = md;
-  // // Instruction In = I;
-  // I.setDebugLoc(dl);
   CurInst = &I;
+  SDLoc dl = getCurSDLoc();
+  DebugLoc ddl = getCurDebugLoc();
+  ddl.metaData += "testthisload";
+  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  SmallVector<StringRef, 8> MdNames;
+  Mds.clear();
+  MdNames.clear();
+  I.getAllMetadata(Mds);
+  Context->getMDKindNames(MdNames);
+  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+    ddl.metaData += MdNames[II->first];
+  }
+  dl.setDebugLoc(ddl);
 
+
+  llvm::outs() << "ssssssssssssssssssssssssss " << CurInst << "\n";
   visit(I.getOpcode(), I);
 
   if (!isa<TerminatorInst>(&I) && !HasTailCall &&
@@ -3452,6 +3457,7 @@ void SelectionDAGBuilder::visitAlloca(const AllocaInst &I) {
 }
 
 void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
+  llvm::outs() << "\npoiu\n";
   if (I.isAtomic())
     return visitAtomicLoad(I);
 
@@ -3517,6 +3523,20 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   }
 
   SDLoc dl = getCurSDLoc();
+  DebugLoc ddl = getCurDebugLoc();
+  ddl.metaData += "testthisload";
+  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  SmallVector<StringRef, 8> MdNames;
+  Mds.clear();
+  MdNames.clear();
+  I.getAllMetadata(Mds);
+  Context->getMDKindNames(MdNames);
+  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+    ddl.metaData += MdNames[II->first];
+  }
+  dl.setDebugLoc(ddl);
 
   if (isVolatile)
     Root = TLI.prepareVolatileOrAtomicLoad(Root, dl, DAG);
@@ -3636,6 +3656,7 @@ void SelectionDAGBuilder::visitLoadFromSwiftError(const LoadInst &I) {
 }
 
 void SelectionDAGBuilder::visitStore(const StoreInst &I) {
+  llvm::outs() << "\nklkj\n";
   if (I.isAtomic())
     return visitAtomicStore(I);
 
@@ -3674,6 +3695,21 @@ void SelectionDAGBuilder::visitStore(const StoreInst &I) {
   SDValue Root = getRoot();
   SmallVector<SDValue, 4> Chains(std::min(MaxParallelChains, NumValues));
   SDLoc dl = getCurSDLoc();
+  DebugLoc ddl = getCurDebugLoc();
+  ddl.metaData += "testthisstore";
+  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  SmallVector<StringRef, 8> MdNames;
+  Mds.clear();
+  MdNames.clear();
+  I.getAllMetadata(Mds);
+  Context->getMDKindNames(MdNames);
+  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+    ddl.metaData += MdNames[II->first];
+  }
+  dl.setDebugLoc(ddl);
+
   EVT PtrVT = Ptr.getValueType();
   unsigned Alignment = I.getAlignment();
   AAMDNodes AAInfo;
@@ -4774,19 +4810,21 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   SDLoc sdl = getCurSDLoc();
   DebugLoc dl = getCurDebugLoc();
-  dl.metaData += "testthisvisitIntrin";
-  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
-  SmallVector<StringRef, 8> MdNames;
-  Mds.clear();
-  MdNames.clear();
-  I.getAllMetadata(Mds);
-  Context->getMDKindNames(MdNames);
-  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
-        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
-    dl.metaData += MdNames[II->first];
+  if (Intrinsic == Intrinsic::returnaddress) {
+    dl.metaData += "testthisvisitIntrin";
+    SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+    SmallVector<StringRef, 8> MdNames;
+    Mds.clear();
+    MdNames.clear();
+    I.getAllMetadata(Mds);
+    Context->getMDKindNames(MdNames);
+    for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+          II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+      llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+      dl.metaData += MdNames[II->first];
+    }
+    sdl.setDebugLoc(dl);
   }
-  sdl.setDebugLoc(dl);
   SDValue Res;
 
   switch (Intrinsic) {
