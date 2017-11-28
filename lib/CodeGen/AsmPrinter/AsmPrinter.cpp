@@ -643,6 +643,7 @@ static void emitComments(const MachineInstr &MI, raw_ostream &CommentOS) {
     }
   }
   std::cout << "md: " << MI.getDebugLoc().metaData  << " " << &MI.getDebugLoc() << std::endl;
+  MI.getDebugLoc().print(CommentOS);
   CommentOS << MI.getDebugLoc().metaData << "\n";
   // We assume a single instruction only has a spill or reload, not
   // both.
