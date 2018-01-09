@@ -15,6 +15,7 @@ add_public_tablegen_target(X86CommonTableGen)
 set(sources
   X86AsmPrinter.cpp
   X86CallFrameOptimization.cpp
+  X86EnqueueExits.cpp
   X86ExpandPseudo.cpp
   X86FastISel.cpp
   X86FixupBWInsts.cpp
@@ -29,6 +30,7 @@ set(sources
   X86MachineFunctionInfo.cpp
   X86OptimizeLEAs.cpp
   X86PadShortFunction.cpp
+  X86ProtectSpillSupport.cpp
   X86RegisterInfo.cpp
   X86SelectionDAGInfo.cpp
   X86ShuffleDecodeConstantPool.cpp

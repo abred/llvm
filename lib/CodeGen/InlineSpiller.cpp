@@ -388,8 +388,14 @@ bool InlineSpiller::hoistSpillInsideBB(LiveInterval &SpillLI,
     ++MII;
   }
   // Insert spill without kill flag immediately after def.
-  TII.storeRegToStackSlot(*MBB, MII, SrcReg, false, StackSlot,
-                          MRI.getRegClass(SrcReg), &TRI);
+  if (TII.protectRegisterSpill(SrcReg, MBB->getParent())) {
+    TII.spillRegToStackSlot(*MBB, MII, SrcReg, false, StackSlot,
+                            MRI.getRegClass(SrcReg), &TRI);
+  } else {
+    TII.storeRegToStackSlot(*MBB, MII, SrcReg, false, StackSlot,
+                            MRI.getRegClass(SrcReg), &TRI);
+  }
+
   --MII; // Point to store instruction.
   LIS.InsertMachineInstrInMaps(*MII);
   DEBUG(dbgs() << "\thoisted: " << SrcVNI->def << '\t' << *MII);
@@ -851,8 +857,13 @@ void InlineSpiller::insertSpill(unsigned NewVReg, bool isKill,
   MachineBasicBlock &MBB = *MI->getParent();
 
   MachineInstrSpan MIS(MI);
-  TII.storeRegToStackSlot(MBB, std::next(MI), NewVReg, isKill, StackSlot,
-                          MRI.getRegClass(NewVReg), &TRI);
+  if (TII.protectRegisterSpill(NewVReg, MBB.getParent())) {
+    TII.spillRegToStackSlot(MBB, std::next(MI), NewVReg, isKill, StackSlot,
+                            MRI.getRegClass(NewVReg), &TRI);
+  } else {
+    TII.storeRegToStackSlot(MBB, std::next(MI), NewVReg, isKill, StackSlot,
+                            MRI.getRegClass(NewVReg), &TRI);
+  }
 
   LIS.InsertMachineInstrRangeInMaps(std::next(MI), MIS.end());
 
@@ -938,15 +949,29 @@ void InlineSpiller::spillAroundUses(unsigned Reg) {
     }
 
     // Attempt to fold memory ops.
-    if (foldMemoryOperand(Ops))
+    MachineBasicBlock *MBB = MI->getParent();
+    MachineFunction *MF = MBB->getParent();
+    if (!TII.protectRegisterSpill(Reg, MF)
+        && foldMemoryOperand(Ops))
       continue;
 
     // Create a new virtual register for spill/fill.
     // FIXME: Infer regclass from instruction alone.
     unsigned NewVReg = Edit->createFrom(Reg);
 
-    if (RI.Reads)
-      insertReload(NewVReg, Idx, MI);
+    if (RI.Reads) {
+      if (!TII.protectRegisterSpill(NewVReg, MF)) {
+        insertReload(NewVReg, Idx, MI);
+      } else {
+        // doesnt do anything atm insertmi == mi
+        MachineBasicBlock::iterator InsertMI = TII.findReloadPosition(MI);
+        insertReload(NewVReg, Idx, InsertMI);
+
+        MachineInstrSpan MIS(InsertMI);
+        TII.compareRegAndStackSlot(*MBB, InsertMI, NewVReg, StackSlot+1, MRI, TRI);
+        LIS.InsertMachineInstrRangeInMaps(MIS.begin(), InsertMI);
+      }
+    }
 
     // Rewrite instruction operands.
     bool hasLiveDef = false;
@@ -1424,8 +1449,16 @@ void HoistSpillHelper::hoistAllSpills() {
       MachineBasicBlock *BB = Insert.first;
       unsigned LiveReg = Insert.second;
       MachineBasicBlock::iterator MI = IPA.getLastInsertPointIter(OrigLI, *BB);
-      TII.storeRegToStackSlot(*BB, MI, LiveReg, false, Slot,
-                              MRI.getRegClass(LiveReg), &TRI);
+      if (TII.protectRegisterSpill(LiveReg, BB->getParent())) {
+        TII.spillRegToStackSlot(*BB, MI, LiveReg, false, Slot,
+                                MRI.getRegClass(LiveReg), &TRI);
+      } else {
+        TII.storeRegToStackSlot(*BB, MI, LiveReg, false, Slot,
+                                MRI.getRegClass(LiveReg), &TRI);
+      }
+
+      // TII.storeRegToStackSlot(*BB, MI, LiveReg, false, Slot,
+      //                         MRI.getRegClass(LiveReg), &TRI);
       LIS.InsertMachineInstrRangeInMaps(std::prev(MI), MI);
       ++NumSpills;
     }

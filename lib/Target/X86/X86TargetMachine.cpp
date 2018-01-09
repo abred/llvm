@@ -331,4 +331,7 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86PadShortFunctions());
     addPass(createX86FixupLEAs());
   }
+
+  addPass(createX86ProtectSpillSupport());
+  addPass(createX86EnqueueExits());
 }

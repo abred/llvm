@@ -333,7 +333,8 @@ public:
                            MachineBasicBlock::iterator MI,
                            unsigned SrcReg, bool isKill, int FrameIndex,
                            const TargetRegisterClass *RC,
-                           const TargetRegisterInfo *TRI) const override;
+                           const TargetRegisterInfo *TRI,
+                           int duplicate = -1) const override;
 
   void storeRegToAddr(MachineFunction &MF, unsigned SrcReg, bool isKill,
                       SmallVectorImpl<MachineOperand> &Addr,
@@ -566,6 +567,35 @@ private:
 
   /// Expand the MOVImmSExti8 pseudo-instructions.
   bool ExpandMOVImmSExti8(MachineInstrBuilder &MIB) const;
+
+public:
+  bool protectRegisterSpill(unsigned Reg,
+                            const MachineFunction *MF) const override;
+
+  MachineInstr* findReloadPosition(MachineInstr *MI) const override;
+
+  unsigned getCompareRegAndStackOpcode(unsigned Reg,
+                                       const MachineRegisterInfo &MRI,
+                                       const TargetRegisterInfo &TRI) const override;
+
+  void compareRegAndStackSlot(MachineBasicBlock &MBB,
+                              MachineBasicBlock::iterator MI,
+                              unsigned Reg, unsigned StackSlot,
+                              const MachineRegisterInfo &MRI,
+                              const TargetRegisterInfo &TRI) const override;
+
+  void populateExitBlock(MachineBasicBlock *exit) const override;
+
+  static unsigned getFSOpcode(unsigned);
+
+  bool isRegLiveAtMI(unsigned Reg, MachineBasicBlock::iterator MI,
+                     bool unreliableLiveInInfo = false) const;
+
+  void spillRegToStackSlot(MachineBasicBlock &MBB,
+                           MachineBasicBlock::iterator MI,
+                           unsigned SrcReg, bool isKill, int FrameIndex,
+                           const TargetRegisterClass *RC,
+                           const TargetRegisterInfo *TRI) const override;
 };
 
 } // End llvm namespace

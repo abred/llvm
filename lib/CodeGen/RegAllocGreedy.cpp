@@ -2566,6 +2566,39 @@ unsigned RAGreedy::selectOrSplitImpl(LiveInterval &VirtReg,
   return 0;
 }
 
+static void duplicateSpills(MachineFunction &mf) {
+  for (auto MBBI = mf.begin(), MBBE = mf.end(); MBBI != MBBE; ++MBBI) {
+    auto MI = MBBI->begin(), ME = MBBI->end();
+    while (MI != ME) {
+      auto NI = std::next(MI);
+
+      const DebugLoc &DL = MI->getDebugLoc();
+      MachineBasicBlock *MBB = MI->getParent();
+      MachineFunction *MF = MBB->getParent();
+      const TargetInstrInfo *TII = MF->getSubtarget().getInstrInfo();
+
+      if (MI->getFlag(MachineInstr::Spill)) {
+        const unsigned SrcRegIdx = MI->getNumOperands()-1;
+        assert(MI->getOperand(0).isFI() && MI->getOperand(SrcRegIdx).isReg());
+        const MachineOperand &MOReg = MI->getOperand(SrcRegIdx);
+        const unsigned Reg = MOReg.getReg();
+        const unsigned FI  = MI->getOperand(0).getIndex();
+        const unsigned pairedFI = FI+1;
+
+        const TargetRegisterInfo *RegInfo =
+          (MF->getSubtarget().getRegisterInfo());
+        const MachineRegisterInfo &MRI = MF->getRegInfo();
+
+        // Insert before 'MI' so we do not need to worry about the
+        // live-state of 'Reg':
+        TII->storeRegToStackSlot(*MBB, MI, Reg, false, pairedFI, MRI.getRegClass(Reg), RegInfo, 1);
+      }
+
+      MI =  NI;
+    }
+  }
+}
+
 bool RAGreedy::runOnMachineFunction(MachineFunction &mf) {
   DEBUG(dbgs() << "********** GREEDY REGISTER ALLOCATION **********\n"
                << "********** Function: " << mf.getName() << '\n');
@@ -2613,6 +2646,7 @@ bool RAGreedy::runOnMachineFunction(MachineFunction &mf) {
   allocatePhysRegs();
   tryHintsRecoloring();
   postOptimization();
+  duplicateSpills(mf);
 
   releaseMemory();
   return true;

@@ -233,6 +233,14 @@ class MachineFunction {
 
   MachineFunction(const MachineFunction &) = delete;
   void operator=(const MachineFunction&) = delete;
+
+  MachineBasicBlock *ExitBlock;
+  void populateExitBlock();
+public:
+  MachineBasicBlock *getExitBlock() const { return ExitBlock; }
+  void enqueueExitBlock();
+  bool protectSpills() const;
+
 public:
   MachineFunction(const Function *Fn, const TargetMachine &TM,
                   unsigned FunctionNum, MachineModuleInfo &MMI);

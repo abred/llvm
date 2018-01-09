@@ -1546,9 +1546,11 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
     MachineBasicBlock::iterator PI = std::prev(MBBI);
     unsigned Opc = PI->getOpcode();
 
+    bool NonExitJumpTerminator = PI->isTerminator() &&
+      !PI->getFlag(MachineInstr::ExitJump);
     if ((Opc != X86::POP32r || !PI->getFlag(MachineInstr::FrameDestroy)) &&
         (Opc != X86::POP64r || !PI->getFlag(MachineInstr::FrameDestroy)) &&
-        Opc != X86::DBG_VALUE && !PI->isTerminator())
+        Opc != X86::DBG_VALUE && !NonExitJumpTerminator)
       break;
 
     --MBBI;

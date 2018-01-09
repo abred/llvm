@@ -422,6 +422,11 @@ unsigned RegScavenger::scavengeRegister(const TargetRegisterClass *RC,
   // If the target knows how to save/restore the register, let it do so;
   // otherwise, use the emergency stack spill slot.
   if (!TRI->saveScavengerRegister(*MBB, I, UseMI, RC, SReg)) {
+    // For the protection mechanisms we should use the target-specific
+    // method for saving registers:
+    assert(0 && "should use target-specific method for "
+           "saving/restoring register");
+
     // Spill the scavenged register before I.
     int FI = Scavenged[SI].FrameIndex;
     if (FI < FIB || FI >= FIE) {
@@ -430,20 +435,38 @@ unsigned RegScavenger::scavengeRegister(const TargetRegisterClass *RC,
           ": Cannot scavenge register without an emergency spill slot!";
       report_fatal_error(Msg.c_str());
     }
-    TII->storeRegToStackSlot(*MBB, I, SReg, true, Scavenged[SI].FrameIndex,
+    bool duplicate = TII->protectRegisterSpill(SReg, MBB->getParent());
+
+    TII->storeRegToStackSlot(*MBB, I, SReg, !duplicate, Scavenged[SI].FrameIndex,
                              RC, TRI);
     MachineBasicBlock::iterator II = std::prev(I);
 
     unsigned FIOperandNum = getFrameIndexOperandNum(*II);
     TRI->eliminateFrameIndex(II, SPAdj, FIOperandNum, this);
 
+    if (duplicate) {
+      TII->storeRegToStackSlot(*MBB, I, SReg, true, Scavenged[SI].FrameIndex+1,
+                               RC, TRI);
+      MachineBasicBlock::iterator II = std::prev(I);
+
+      unsigned FIOperandNum = getFrameIndexOperandNum(*II);
+      TRI->eliminateFrameIndex(II, SPAdj, FIOperandNum, this);
+    }
+
     // Restore the scavenged register before its use (or first terminator).
-    TII->loadRegFromStackSlot(*MBB, UseMI, SReg, Scavenged[SI].FrameIndex,
-                              RC, TRI);
-    II = std::prev(UseMI);
+    MachineInstr *InsertMI = UseMI;
+    if (duplicate) InsertMI = TII->findReloadPosition(UseMI);
+
+    TII->loadRegFromStackSlot(*MBB, InsertMI, SReg, Scavenged[SI].FrameIndex,
+                           RC, TRI);
+    II = std::prev(InsertMI);
 
     FIOperandNum = getFrameIndexOperandNum(*II);
     TRI->eliminateFrameIndex(II, SPAdj, FIOperandNum, this);
+
+    if (duplicate)
+      TII->compareRegAndStackSlot(*MBB, InsertMI, SReg, Scavenged[SI].FrameIndex+1,
+                                  *MRI, *TRI);
   }
 
   Scavenged[SI].Restore = &*std::prev(UseMI);

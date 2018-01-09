@@ -40,12 +40,21 @@
 #include "llvm/Support/GraphWriter.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetFrameLowering.h"
+#include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
+
 using namespace llvm;
 
 #define DEBUG_TYPE "codegen"
+
+static cl::opt<bool>
+ProtectSpill("protect-spill",
+             cl::desc("Protect register spills by duplication"));
+static cl::opt<bool>
+ProtectOnlyEnc("protect-only-enc",
+               cl::desc("Protect functions only when prefixed with '___enc_'"));
 
 static cl::opt<unsigned>
     AlignAllFunctions("align-all-functions",
@@ -146,6 +155,35 @@ MachineFunction::MachineFunction(const Function *F, const TargetMachine &TM,
          "Target-incompatible DataLayout attached\n");
 
   PSVManager = llvm::make_unique<PseudoSourceValueManager>();
+
+  populateExitBlock();
+}
+
+void MachineFunction::populateExitBlock() {
+  if (!protectSpills())
+    return;
+
+  ExitBlock = CreateMachineBasicBlock();
+}
+
+void MachineFunction::enqueueExitBlock() {
+  if (!protectSpills())
+    return;
+
+  BasicBlocks.push_back(ExitBlock);
+  ExitBlock->setNumber(addToMBBNumbering(ExitBlock));
+  getSubtarget().getInstrInfo()->populateExitBlock(ExitBlock);
+
+  // HACK: This ensures that the 'AsmPrinter' emits the label at
+  // the start of the 'ExitBlock':
+  ExitBlock->setIsEHPad();
+}
+
+bool MachineFunction::protectSpills() const {
+  bool result = ProtectSpill;
+  if (ProtectOnlyEnc)
+    result = result && getName().startswith("___enc_");
+  return result;
 }
 
 MachineFunction::~MachineFunction() {

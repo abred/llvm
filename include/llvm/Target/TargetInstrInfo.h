@@ -765,7 +765,8 @@ public:
                                    MachineBasicBlock::iterator MI,
                                    unsigned SrcReg, bool isKill, int FrameIndex,
                                    const TargetRegisterClass *RC,
-                                   const TargetRegisterInfo *TRI) const {
+                                   const TargetRegisterInfo *TRI,
+                                   int duplicate = -1) const {
     llvm_unreachable("Target didn't implement "
                      "TargetInstrInfo::storeRegToStackSlot!");
   }
@@ -1443,6 +1444,48 @@ private:
   unsigned CallFrameSetupOpcode, CallFrameDestroyOpcode;
   unsigned CatchRetOpcode;
   unsigned ReturnOpcode;
+
+public:
+  virtual bool protectRegisterSpill(unsigned Reg,
+                                    const MachineFunction *MF) const {
+    return MF->protectSpills();
+  }
+
+  virtual MachineInstr* findReloadPosition(MachineInstr *MI) const {
+    return MI;
+  }
+
+  virtual unsigned getCompareRegAndStackOpcode(unsigned Reg,
+                                               const MachineRegisterInfo &MRI,
+                                               const TargetRegisterInfo &TRI) const {
+    return ~0;
+  }
+
+  virtual void compareRegAndStackSlot(MachineBasicBlock &MBB,
+                                      MachineBasicBlock::iterator MI,
+                                      unsigned Reg, unsigned StackSlot,
+                                      const MachineRegisterInfo &MRI,
+                                      const TargetRegisterInfo &TRI) const {
+    return;
+  }
+
+  virtual void populateExitBlock(MachineBasicBlock *exit) const {
+    return;
+  }
+
+  virtual void spillRegToStackSlot(MachineBasicBlock &MBB,
+                                   MachineBasicBlock::iterator MI,
+                                   unsigned SrcReg, bool isKill, int FrameIndex,
+                                   const TargetRegisterClass *RC,
+                                   const TargetRegisterInfo *TRI) const {
+    // We really want to use the 'spillRegToStackSlot' method of the
+    // target-specific derived classes. Hence, assert if we get here:
+    assert(0 && "should use target-specific method for register spilling");
+
+    // Generally, we could defer to the 'storeRegToStackSlot' method,
+    // without taking any actions that are specific to register spills:
+    //storeRegToStackSlot(MBB, MI, SrcReg, isKill, FrameIndex, RC, TRI);
+  }
 };
 
 /// \brief Provide DenseMapInfo for TargetInstrInfo::RegSubRegPair.

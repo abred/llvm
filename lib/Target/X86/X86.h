@@ -86,6 +86,10 @@ FunctionPass *createX86ExpandPseudoPass();
 /// the upper portions of registers, and to save code size.
 FunctionPass *createX86FixupBWInsts();
 
+FunctionPass *createX86ProtectSpillSupport();
+
+FunctionPass *createX86EnqueueExits();
+
 void initializeFixupBWInstPassPass(PassRegistry &);
 } // End llvm namespace
 

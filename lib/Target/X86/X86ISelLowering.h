@@ -587,11 +587,12 @@ namespace llvm {
 
       /// This instruction grabs the address of the next argument
       /// from a va_list. (reads and modifies the va_list in memory)
-      VAARG_64
+      VAARG_64,
 
       // WARNING: Do not add anything in the end unless you want the node to
       // have memop! In fact, starting from FIRST_TARGET_MEMORY_OPCODE all
       // opcodes will be thought as target memory ops!
+      CJE
     };
   } // end namespace X86ISD
 

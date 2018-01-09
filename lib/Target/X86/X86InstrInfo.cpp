@@ -4874,7 +4874,8 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                        MachineBasicBlock::iterator MI,
                                        unsigned SrcReg, bool isKill, int FrameIdx,
                                        const TargetRegisterClass *RC,
-                                       const TargetRegisterInfo *TRI) const {
+                                       const TargetRegisterInfo *TRI,
+                                       int duplicate) const {
   const MachineFunction &MF = *MBB.getParent();
   assert(MF.getFrameInfo()->getObjectSize(FrameIdx) >= RC->getSize() &&
          "Stack slot too small for store");
@@ -4884,8 +4885,24 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
       RI.canRealignStack(MF);
   unsigned Opc = getStoreRegOpcode(SrcReg, RC, isAligned, Subtarget);
   DebugLoc DL = MBB.findDebugLoc(MI);
+  if (duplicate == 0) {
+    DL.metaData = "Spill-Primary";
+  }
+  else if (duplicate == 1) {
+    DL.metaData = "Spill-Secondary";
+  }
+
   addFrameReference(BuildMI(MBB, MI, DL, get(Opc)), FrameIdx)
     .addReg(SrcReg, getKillRegState(isKill));
+}
+
+void X86InstrInfo::spillRegToStackSlot(MachineBasicBlock &MBB,
+                                       MachineBasicBlock::iterator MI,
+                                       unsigned SrcReg, bool isKill, int FrameIdx,
+                                       const TargetRegisterClass *RC,
+                                       const TargetRegisterInfo *TRI) const {
+  storeRegToStackSlot(MBB, MI, SrcReg, isKill, FrameIdx, RC, TRI, 0);
+  (--MI)->setFlag(MachineInstr::Spill);
 }
 
 void X86InstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
@@ -4907,6 +4924,112 @@ void X86InstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
   (*MIB).setMemRefs(MMOBegin, MMOEnd);
   NewMIs.push_back(MIB);
 }
+
+bool X86InstrInfo::protectRegisterSpill(unsigned Reg,
+                                        const MachineFunction *MF) const {
+  const MachineRegisterInfo &MRI = MF->getRegInfo();
+  const TargetRegisterInfo *TRI = MF->getSubtarget().getRegisterInfo();
+  const TargetRegisterClass *RC = TRI->isPhysicalRegister(Reg)
+    ? TRI->getMinimalPhysRegClass(Reg)
+    : MRI.getRegClass(Reg);
+
+  if (RC->hasSuperClassEq(&X86::GR64RegClass) ||
+      RC->hasSuperClassEq(&X86::GR32RegClass) ||
+      RC->hasSuperClassEq(&X86::GR16RegClass) ||
+      RC->hasSuperClassEq(&X86::GR8RegClass))
+    return MF->protectSpills();
+  else
+    return false;
+}
+
+bool X86InstrInfo::isRegLiveAtMI(unsigned Reg, MachineBasicBlock::iterator MI,
+                                 bool unreliableLiveInInfo) const {
+  MachineBasicBlock *MBB = MI->getParent();
+  MachineBasicBlock::iterator MBBI = MI, OrigMBBI = MI;
+
+  // Search back to the latest definition of 'Reg' that precedes 'MI':
+  MachineInstr *PrevDef = nullptr;
+  while (MBBI != MBB->begin()) {
+    --MBBI;
+    if (MBBI->definesRegister(Reg) &&
+        !MBBI->registerDefIsDead(Reg)) {
+      PrevDef = MBBI;
+      break;
+    }
+  }
+  if (!PrevDef) {
+    // If there is no definition of 'Reg' in this basic block
+    // and 'Reg' is not "live in", then 'Reg' is deat at 'MI':
+    if (!unreliableLiveInInfo && !MBB->isLiveIn(Reg))
+      return false;
+  }
+
+  // Now search forward to the last use of 'PrevDef':
+  bool isLiveAtMI = false;
+  if (MBBI != MBB->begin()) {
+    // Point the iterator past the instruction
+    // that defines 'Reg':
+    ++MBBI;
+  }
+  while (MBBI != MBB->end()) {
+    if (MBBI == OrigMBBI) {
+      isLiveAtMI = true;
+      break;
+    }
+    if (MBBI->killsRegister(Reg) ||
+        MBBI->registerDefIsDead(Reg)) {
+      break;
+    }
+    ++MBBI;
+  }
+
+  return isLiveAtMI;
+}
+
+MachineInstr* X86InstrInfo::findReloadPosition(MachineInstr *MI) const {
+  return MI;
+}
+
+unsigned X86InstrInfo::getCompareRegAndStackOpcode(unsigned Reg,
+                                                   const MachineRegisterInfo &MRI,
+                                                   const TargetRegisterInfo &TRI) const {
+  const TargetRegisterClass *RC = TRI.isPhysicalRegister(Reg)
+    ? TRI.getMinimalPhysRegClass(Reg)
+    : MRI.getRegClass(Reg);
+
+  unsigned OpcCmp = ~0U;
+  if (RC->hasSuperClassEq(&X86::GR64RegClass))
+    OpcCmp = X86::CJE64rm;
+  else if (RC->hasSuperClassEq(&X86::GR32RegClass))
+    OpcCmp = X86::CJE32rm;
+  else if (RC->hasSuperClassEq(&X86::GR16RegClass))
+    OpcCmp = X86::CJE16rm;
+  else if (RC->hasSuperClassEq(&X86::GR8RegClass))
+    OpcCmp = X86::CJE8rm;
+  else
+    llvm_unreachable("register class not handled");
+
+  return OpcCmp;
+}
+
+void X86InstrInfo::compareRegAndStackSlot(MachineBasicBlock &MBB,
+                                          MachineBasicBlock::iterator MI,
+                                          unsigned Reg, unsigned StackSlot,
+                                          const MachineRegisterInfo &MRI,
+                                          const TargetRegisterInfo &TRI) const {
+  DebugLoc DL = MBB.findDebugLoc(MI);
+  DL.metaData = "CJE";
+  unsigned Opc = getCompareRegAndStackOpcode(Reg, MRI, TRI);
+  addFrameReference(BuildMI(MBB, MI, DL, get(Opc), Reg).addReg(Reg), StackSlot);
+}
+
+void X86InstrInfo::populateExitBlock(MachineBasicBlock *exit) const {
+  BuildMI(*exit, exit->end(), DebugLoc(), get(X86::MOV32ri), X86::EDI).addImm(3);
+  if (!Subtarget.is64Bit())
+    BuildMI(*exit, exit->end(), DebugLoc(), get(X86::PUSH32r)).addReg(X86::EDI);
+  BuildMI(*exit, exit->end(), DebugLoc(), get(X86::CALL64pcrel32)).addExternalSymbol("exit");
+}
+
 
 
 void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,

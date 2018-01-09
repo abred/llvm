@@ -478,6 +478,11 @@ static void insertCSRSpillsAndRestores(MachineFunction &Fn,
   for (MachineBasicBlock *SaveBlock : SaveBlocks) {
     I = SaveBlock->begin();
     if (!TFI->spillCalleeSavedRegisters(*SaveBlock, I, CSI, TRI)) {
+      // For the protection mechanisms we should be using the
+      // target-specific method for spilling callee-saved registers:
+      assert(0 && "should use target-specific method for spilling "
+             "callee-saved registers");
+
       for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
         // Insert the spill to the stack frame.
         unsigned Reg = CSI[i].getReg();
@@ -497,7 +502,8 @@ static void insertCSRSpillsAndRestores(MachineFunction &Fn,
     // Skip over all terminator instructions, which are part of the return
     // sequence.
     MachineBasicBlock::iterator I2 = I;
-    while (I2 != MBB->begin() && (--I2)->isTerminator())
+    while (I2 != MBB->begin() && (--I2)->isTerminator()
+           && !I2->getFlag(MachineInstr::ExitJump))
       I = I2;
 
     bool AtStart = I == MBB->begin();

@@ -707,6 +707,7 @@ private:
   // Methods used to maintain doubly linked list of blocks...
   friend struct ilist_traits<MachineBasicBlock>;
 
+public:
   // Machine-CFG mutators
 
   /// Remove Pred as a predecessor of this MachineBasicBlock. Don't do this

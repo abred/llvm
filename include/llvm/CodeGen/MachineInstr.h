@@ -72,7 +72,9 @@ public:
     FrameDestroy = 1 << 1,              // Instruction is used as a part of
                                         // function frame destruction code.
     BundledPred  = 1 << 2,              // Instruction has bundled predecessors.
-    BundledSucc  = 1 << 3               // Instruction has bundled successors.
+    BundledSucc  = 1 << 3,              // Instruction has bundled successors.
+    ExitJump     = 1 << 4,
+    Spill        = 1 << 5
   };
 private:
   const MCInstrDesc *MCID;              // Instruction descriptor.
