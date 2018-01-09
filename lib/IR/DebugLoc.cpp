@@ -88,7 +88,9 @@ void DebugLoc::print(raw_ostream &OS) const {
 
   // Print source line info.
   auto *Scope = cast<DIScope>(getScope());
-  OS << Scope->getFilename();
+  auto pn = Scope->getFilename();
+  auto fn = std::get<1>(pn.rsplit('/'));
+  OS << fn;
   OS << ':' << getLine();
   if (getCol() != 0)
     OS << ':' << getCol();

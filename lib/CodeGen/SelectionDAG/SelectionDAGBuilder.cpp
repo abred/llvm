@@ -976,7 +976,7 @@ void SelectionDAGBuilder::visit(const Instruction &I) {
     HandlePHINodesInSuccessorBlocks(I.getParent());
   }
 
-  llvm::outs() << "\cvbn\n";
+  // llvm::outs() << "\cvbn\n";
   ++SDNodeOrder;
 
   CurInst = &I;
@@ -991,13 +991,13 @@ void SelectionDAGBuilder::visit(const Instruction &I) {
   Context->getMDKindNames(MdNames);
   for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
         II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+    // llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
     ddl.metaData += MdNames[II->first];
   }
   dl.setDebugLoc(ddl);
 
 
-  llvm::outs() << "ssssssssssssssssssssssssss " << CurInst << "\n";
+  // llvm::outs() << "ssssssssssssssssssssssssss " << CurInst << "\n";
   visit(I.getOpcode(), I);
 
   if (!isa<TerminatorInst>(&I) && !HasTailCall &&
@@ -3457,7 +3457,7 @@ void SelectionDAGBuilder::visitAlloca(const AllocaInst &I) {
 }
 
 void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
-  llvm::outs() << "\npoiu\n";
+  // llvm::outs() << "\npoiu\n";
   if (I.isAtomic())
     return visitAtomicLoad(I);
 
@@ -3533,7 +3533,7 @@ void SelectionDAGBuilder::visitLoad(const LoadInst &I) {
   Context->getMDKindNames(MdNames);
   for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
         II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+    // llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
     ddl.metaData += MdNames[II->first];
   }
   dl.setDebugLoc(ddl);
@@ -3656,7 +3656,7 @@ void SelectionDAGBuilder::visitLoadFromSwiftError(const LoadInst &I) {
 }
 
 void SelectionDAGBuilder::visitStore(const StoreInst &I) {
-  llvm::outs() << "\nklkj\n";
+  // llvm::outs() << "\nklkj\n";
   if (I.isAtomic())
     return visitAtomicStore(I);
 
@@ -3705,7 +3705,7 @@ void SelectionDAGBuilder::visitStore(const StoreInst &I) {
   Context->getMDKindNames(MdNames);
   for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
         II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-    llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+    // llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
     ddl.metaData += MdNames[II->first];
   }
   dl.setDebugLoc(ddl);
@@ -4820,7 +4820,7 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
     Context->getMDKindNames(MdNames);
     for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
           II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-      llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
+      // llvm::outs() << "pouy: " << MdNames[II->first] << "\n";
       dl.metaData += MdNames[II->first];
     }
     sdl.setDebugLoc(dl);

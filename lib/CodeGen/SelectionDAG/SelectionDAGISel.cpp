@@ -671,20 +671,20 @@ void SelectionDAGISel::SelectBasicBlock(BasicBlock::const_iterator Begin,
   SmallVector<StringRef, 8> MdNames;
   for (BasicBlock::const_iterator I = Begin; I != End; ++I)
   {
-    llvm::outs() << "\nqwer\n";
-    I->print(llvm::outs());
+    // llvm::outs() << "\nqwer\n";
+    // I->print(llvm::outs());
   }
   for (BasicBlock::const_iterator I = Begin; I != End && !SDB->HasTailCall; ++I)
   {
-    llvm::outs() << "\nasdf\n";
-    I->print(llvm::outs());
+    // llvm::outs() << "\nasdf\n";
+    // I->print(llvm::outs());
     Mds.clear();
     MdNames.clear();
     I->getAllMetadata(Mds);
     CurDAG->getContext()->getMDKindNames(MdNames);
     for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
           II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-      llvm::outs() << "name: " << MdNames[II->first] << "\n";
+      // llvm::outs() << "name: " << MdNames[II->first] << "\n";
     }
 
     SDB->visit(*I);
