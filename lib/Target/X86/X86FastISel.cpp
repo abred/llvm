@@ -488,7 +488,7 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
     break;
   }
 
-  std::cout << "\nEE: " << DbgLoc.metaData << " " << &DbgLoc << std::endl;
+  // std::cout << "\nEE: " << DbgLoc.metaData << " " << &DbgLoc << std::endl;
   ResultReg = createResultReg(RC);
   MachineInstrBuilder MIB =
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc), ResultReg);
@@ -3408,7 +3408,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
 
 bool
 X86FastISel::fastSelectInstruction(const Instruction *I)  {
-  Inst = I;
+  // Inst = I;
   switch (I->getOpcode()) {
   default: break;
   case Instruction::Load:

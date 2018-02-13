@@ -1,3 +1,7 @@
+#include "llvm/MC/MCContext.h"
+#include "X86InstrBuilder.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include <iostream>
 //===-- RegAllocGreedy.cpp - greedy register allocator --------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -399,6 +403,8 @@ private:
                                SmallVirtRegSet &, unsigned);
   void tryHintRecoloring(LiveInterval &);
   void tryHintsRecoloring();
+
+  void duplicateSpills();
 
   /// Model the information carried by one end of a copy.
   struct HintInfo {
@@ -2566,17 +2572,24 @@ unsigned RAGreedy::selectOrSplitImpl(LiveInterval &VirtReg,
   return 0;
 }
 
-static void duplicateSpills(MachineFunction &mf) {
-  for (auto MBBI = mf.begin(), MBBE = mf.end(); MBBI != MBBE; ++MBBI) {
+void RAGreedy::duplicateSpills() {
+  for (auto MBBI = MF->begin(), MBBE = MF->end(); MBBI != MBBE; ++MBBI) {
     auto MI = MBBI->begin(), ME = MBBI->end();
     while (MI != ME) {
       auto NI = std::next(MI);
 
       const DebugLoc &DL = MI->getDebugLoc();
       MachineBasicBlock *MBB = MI->getParent();
-      MachineFunction *MF = MBB->getParent();
-      const TargetInstrInfo *TII = MF->getSubtarget().getInstrInfo();
 
+      // if (MI->getDesc().getOpcode() == TargetOpcode::KILL)
+      // {
+      //   std::cout << "kill1==================================================" << std::endl;
+      // }
+      // else if (MI->getOpcode() == TargetOpcode::KILL)
+      // {
+      //   std::cout << "kill2==================================================" << std::endl;
+      // }
+      // else
       if (MI->getFlag(MachineInstr::Spill)) {
         const unsigned SrcRegIdx = MI->getNumOperands()-1;
         assert(MI->getOperand(0).isFI() && MI->getOperand(SrcRegIdx).isReg());
@@ -2585,15 +2598,134 @@ static void duplicateSpills(MachineFunction &mf) {
         const unsigned FI  = MI->getOperand(0).getIndex();
         const unsigned pairedFI = FI+1;
 
+        // const unsigned StackSlot = VRM->assignVirt2StackSlot(Reg);
+        const unsigned StackSlot = FI+1;
         const TargetRegisterInfo *RegInfo =
           (MF->getSubtarget().getRegisterInfo());
-        const MachineRegisterInfo &MRI = MF->getRegInfo();
 
         // Insert before 'MI' so we do not need to worry about the
         // live-state of 'Reg':
-        TII->storeRegToStackSlot(*MBB, MI, Reg, false, pairedFI, MRI.getRegClass(Reg), RegInfo, 1);
+        const TargetRegisterClass *RC = TRI->isPhysicalRegister(Reg)
+          ? TRI->getMinimalPhysRegClass(Reg)
+          : MRI->getRegClass(Reg);
+        TII->storeRegToStackSlot(*MBB, MI, Reg, false, StackSlot, RC, RegInfo, 1);
+        LIS->InsertMachineInstrInMaps(*std::prev(MI));
       }
+      else if (MI->getFlag(MachineInstr::Reload)) {
+        // std::cout << TII->getName(MI->getOpcode()) << " " << MI->getOpcode() << " " << MI->getNumOperands() << std::endl;
+        const unsigned SrcRegIdx = 0;
+        // const unsigned FIidx = MI->getNumOperands()-1;
+        const unsigned FIidx = 1;
+        // for (unsigned i = 0; i < MI->getNumOperands(); i++) {
+        //   std::cout << MI->getOperand(i).getType() << std::endl;
+        // }
 
+        assert(MI->getOperand(FIidx).isFI() && MI->getOperand(SrcRegIdx).isReg());
+        const MachineOperand &MOReg = MI->getOperand(SrcRegIdx);
+        const unsigned Reg = MOReg.getReg();
+        const unsigned FI  = MI->getOperand(FIidx).getIndex();
+        const unsigned StackSlot = FI;
+
+
+        // MachineInstrSpan MIS(MI);
+        TII->compareRegAndStackSlot(*MBB, std::next(MI), Reg, StackSlot+1,
+                                    MF->getRegInfo(),
+                                    *MF->getSubtarget().getRegisterInfo());
+
+        LIS->InsertMachineInstrInMaps(*std::next(MI));
+        NI = std::next(std::next(MI));
+        // LIS->InsertMachineInstrRangeInMaps(MIS.begin(), std::next(MI));
+      }
+      else if (!MI->getFlag(MachineInstr::NoSpill)) {
+      // else {
+        const MachineMemOperand *Dummy;
+        int FrameIndex;
+        if (TII->hasStoreToStackSlot(*MI, Dummy, FrameIndex)) {
+          if (VRM->hasFI(FrameIndex)) {
+            for (unsigned i = 0; i < MI->getNumOperands(); i++) {
+              if (MI->getOperand(i).isFI()) {
+                std::cout << "store fi" << MI->getOperand(i).getIndex()
+                          << " " << FrameIndex << std::endl;
+              }
+            }
+            std::cout << "do sssssssssssssssssssssssssstore to stack "
+                      << std::string(MF->getName()) << " "
+                      <<  TII->getName(MI->getOpcode()) << std::endl;
+            const DebugLoc &DL = MI->getDebugLoc();
+            MachineInstrBuilder tmpMI = BuildMI(*MBB, MI, DL,
+                                          TII->get(MI->getOpcode()));
+            for (unsigned i = 0; i < MI->getNumOperands(); i++) {
+              std::cout << i << " " << MI->getOperand(i).getType() << std::endl;
+              if (MI->getOperand(i).isImm()) {
+                std::cout << "imm" << MI->getOperand(i).getImm() << std::endl;
+              }
+              if (MI->getOperand(i).isFI()) {
+                std::cout << "fi" << MI->getOperand(i).getIndex() << std::endl;
+              }
+              if (MI->getOperand(i).isReg()) {
+                std::cout << "reg" << MI->getOperand(i).getReg() << std::endl;
+                // std::cout <<  " " << MF->getContext().getRegisterInfo()->getName(MI->getOperand(i).getReg()) << std::endl;
+              }
+            }
+
+            for (unsigned i = 0; i < MI->getNumOperands(); i++) {
+              // std::cout << MI->getOperand(i) << std::endl;
+              if (MI->getOperand(i).isFI()) {
+                std::cout << "fi" << MI->getOperand(i).getIndex()
+                          << " " << FrameIndex << std::endl;
+                tmpMI->addOperand(*MF, MachineOperand::CreateFI(MI->getOperand(i).getIndex()+1));
+                // addFrameReference(tmpMI, FrameIndex);
+              }
+              else {
+                tmpMI.addOperand(MI->getOperand(i));
+              }
+            }
+          }
+        }
+        if (TII->hasLoadFromStackSlot(*MI, Dummy, FrameIndex)) {
+          // if (VRM->hasFI(FrameIndex)) {
+          //   for (unsigned i = 0; i < MI->getNumOperands(); i++) {
+          //   if (MI->getOperand(i).isFI()) {
+          //     std::cout << "load fi " << MI->getOperand(i).getIndex()
+          //               << " " << FrameIndex << std::endl;
+          //   }
+          // }
+          //   std::cout << "do llllllllllllllllllllllllllllload from stack "
+          //             << std::string(MF->getName()) << " "
+          //             <<  TII->getName(MI->getOpcode()) << std::endl;
+          //   const DebugLoc &DL = MI->getDebugLoc();
+          //   MachineInstrBuilder tmpMI = BuildMI(*MBB, MI, DL,
+          //                                 TII->get(MI->getOpcode()));
+
+          //   for (unsigned i = 0; i < MI->getNumOperands(); i++) {
+          //     std::cout << i << " " << MI->getOperand(i).getType() << std::endl;
+          //     if (MI->getOperand(i).isImm()) {
+          //       std::cout << "imm" << MI->getOperand(i).getImm() << std::endl;
+          //     }
+          //     if (MI->getOperand(i).isFI()) {
+          //       std::cout << "fi" << MI->getOperand(i).getIndex() << std::endl;
+          //     }
+          //     if (MI->getOperand(i).isReg()) {
+          //       std::cout << "reg" << MI->getOperand(i).getReg() << std::endl;
+          //       // std::cout << " " << MF->getContext().getRegisterInfo()->getName(MI->getOperand(i).getReg()) << std::endl;
+          //     }
+          //   }
+          //   for (unsigned i = 0; i < MI->getNumOperands(); i++) {
+          //     // std::cout << MI->getOperand(i) << std::endl;
+          //     if (MI->getOperand(i).isFI()) {
+          //       std::cout << "fi" << MI->getOperand(i).getIndex()
+          //                 << " " << FrameIndex << std::endl;
+          //       tmpMI->addOperand(*MF, MachineOperand::CreateFI(MI->getOperand(i).getIndex()+1));
+          //       // addFrameReference(tmpMI, FrameIndex);
+          //     }
+          //     else {
+          //       tmpMI.addOperand(MI->getOperand(i));
+          //     }
+          //   }
+          // }
+        }
+      }
+      // LIS = *getAnalysis<LiveIntervals>();
       MI =  NI;
     }
   }
@@ -2646,7 +2778,9 @@ bool RAGreedy::runOnMachineFunction(MachineFunction &mf) {
   allocatePhysRegs();
   tryHintsRecoloring();
   postOptimization();
-  duplicateSpills(mf);
+  if (MF->protectSpills()) {
+    duplicateSpills();
+  }
 
   releaseMemory();
   return true;

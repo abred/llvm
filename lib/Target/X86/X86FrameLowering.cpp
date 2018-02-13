@@ -1890,8 +1890,9 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
     const std::vector<CalleeSavedInfo> &CSI,
     const TargetRegisterInfo *TRI) const {
-  DebugLoc DL = MBB.findDebugLoc(MI);
-
+  DebugLoc oldDL = MBB.findDebugLoc(MI);
+  DebugLoc DL = DebugLoc();
+  DL.metaData = "csrSpillStore" + oldDL.metaData;
   // Don't save CSRs in 32-bit EH funclets. The caller saves EBX, EBP, ESI, EDI
   // for us, and there are no XMM CSRs on Win32.
   if (MBB.isEHFuncletEntry() && STI.is32Bit() && STI.isOSWindows())
@@ -1943,7 +1944,7 @@ bool X86FrameLowering::spillCalleeSavedRegisters(
     const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
 
     TII.storeRegToStackSlot(MBB, MI, Reg, true, CSI[i - 1].getFrameIdx(), RC,
-                            TRI);
+                            TRI, -1);
     --MI;
     MI->setFlag(MachineInstr::FrameSetup);
     ++MI;
@@ -1975,7 +1976,9 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
     }
   }
 
-  DebugLoc DL = MBB.findDebugLoc(MI);
+  DebugLoc oldDL = MBB.findDebugLoc(MI);
+  DebugLoc DL = DebugLoc();
+  DL.metaData = "csrSpillLoad" + oldDL.metaData;
 
   // Reload XMMs from stack frame.
   for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
@@ -1985,7 +1988,7 @@ bool X86FrameLowering::restoreCalleeSavedRegisters(MachineBasicBlock &MBB,
       continue;
 
     const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
-    TII.loadRegFromStackSlot(MBB, MI, Reg, CSI[i].getFrameIdx(), RC, TRI);
+    TII.loadRegFromStackSlot(MBB, MI, Reg, CSI[i].getFrameIdx(), RC, TRI, false);
   }
 
   // POP GPRs.

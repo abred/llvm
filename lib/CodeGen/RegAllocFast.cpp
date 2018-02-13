@@ -1,3 +1,4 @@
+#include <iostream>
 //===-- RegAllocFast.cpp - A fast register allocator for debug code -------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -639,6 +640,7 @@ RAFast::LiveRegMap::iterator RAFast::reloadVirtReg(MachineInstr &MI,
   bool New;
   std::tie(LRI, New) = LiveVirtRegs.insert(LiveReg(VirtReg));
   MachineOperand &MO = MI.getOperand(OpNum);
+  std::cout << "FAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaast" << std::endl;
   if (New) {
     LRI = allocVirtReg(MI, LRI, Hint);
     const TargetRegisterClass *RC = MRI->getRegClass(VirtReg);

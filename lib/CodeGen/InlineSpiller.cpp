@@ -201,6 +201,8 @@ private:
   bool coalesceStackAccess(MachineInstr *MI, unsigned Reg);
   bool foldMemoryOperand(ArrayRef<std::pair<MachineInstr*, unsigned> >,
                          MachineInstr *LoadMI = nullptr);
+  bool foldMemoryOperand(ArrayRef<std::pair<MachineInstr*, unsigned> >,
+                         bool duplicate, bool duplicate2);
   void insertReload(unsigned VReg, SlotIndex, MachineBasicBlock::iterator MI);
   void insertSpill(unsigned VReg, bool isKill, MachineBasicBlock::iterator MI);
 
@@ -393,7 +395,7 @@ bool InlineSpiller::hoistSpillInsideBB(LiveInterval &SpillLI,
                             MRI.getRegClass(SrcReg), &TRI);
   } else {
     TII.storeRegToStackSlot(*MBB, MII, SrcReg, false, StackSlot,
-                            MRI.getRegClass(SrcReg), &TRI);
+                            MRI.getRegClass(SrcReg), &TRI, 3);
   }
 
   --MII; // Point to store instruction.
@@ -723,6 +725,114 @@ static void dumpMachineInstrRangeWithSlotIndex(MachineBasicBlock::iterator B,
 }
 #endif
 
+
+bool InlineSpiller::
+foldMemoryOperand(ArrayRef<std::pair<MachineInstr*, unsigned> > Ops,
+                  bool duplicate, bool duplicate2) {
+  MachineInstr *LoadMI = nullptr;
+  if (Ops.empty())
+    return false;
+  // Don't attempt folding in bundles.
+  MachineInstr *MI = Ops.front().first;
+  if (Ops.back().first != MI || MI->isBundled())
+    return false;
+
+  bool WasCopy = MI->isCopy();
+  unsigned ImpReg = 0;
+
+  bool SpillSubRegs = (MI->getOpcode() == TargetOpcode::STATEPOINT ||
+                       MI->getOpcode() == TargetOpcode::PATCHPOINT ||
+                       MI->getOpcode() == TargetOpcode::STACKMAP);
+
+  // TargetInstrInfo::foldMemoryOperand only expects explicit, non-tied
+  // operands.
+  SmallVector<unsigned, 8> FoldOps;
+  for (const auto &OpPair : Ops) {
+    unsigned Idx = OpPair.second;
+    assert(MI == OpPair.first && "Instruction conflict during operand folding");
+    MachineOperand &MO = MI->getOperand(Idx);
+    if (MO.isImplicit()) {
+      ImpReg = MO.getReg();
+      continue;
+    }
+    // FIXME: Teach targets to deal with subregs.
+    if (!SpillSubRegs && MO.getSubReg())
+      return false;
+    // We cannot fold a load instruction into a def.
+    if (LoadMI && MO.isDef())
+      return false;
+    // Tied use operands should not be passed to foldMemoryOperand.
+    if (!MI->isRegTiedToDefOperand(Idx))
+      FoldOps.push_back(Idx);
+  }
+
+  MachineInstrSpan MIS(MI);
+
+  MachineInstr *FoldMI = TII.foldMemoryOperand(*MI, FoldOps, StackSlot, true, &LIS);
+  if (!FoldMI)
+    return false;
+
+  // Remove LIS for any dead defs in the original MI not in FoldMI.
+  for (MIBundleOperands MO(*MI); MO.isValid(); ++MO) {
+    if (!MO->isReg())
+      continue;
+    unsigned Reg = MO->getReg();
+    if (!Reg || TargetRegisterInfo::isVirtualRegister(Reg) ||
+        MRI.isReserved(Reg)) {
+      continue;
+    }
+    // Skip non-Defs, including undef uses and internal reads.
+    if (MO->isUse())
+      continue;
+    MIBundleOperands::PhysRegInfo RI =
+        MIBundleOperands(*FoldMI).analyzePhysReg(Reg, &TRI);
+    if (RI.FullyDefined)
+      continue;
+    // FoldMI does not define this physreg. Remove the LI segment.
+    assert(MO->isDead() && "Cannot fold physreg def");
+    SlotIndex Idx = LIS.getInstructionIndex(*MI).getRegSlot();
+    LIS.removePhysRegDefAt(Reg, Idx);
+  }
+
+  int FI;
+  if (TII.isStoreToStackSlot(*MI, FI) &&
+      HSpiller.rmFromMergeableSpills(*MI, FI))
+    --NumSpills;
+  LIS.ReplaceMachineInstrInMaps(*MI, *FoldMI);
+  MI->eraseFromParent();
+
+  // Insert any new instructions other than FoldMI into the LIS maps.
+  assert(!MIS.empty() && "Unexpected empty span of instructions!");
+  for (MachineInstr &MI : MIS)
+    if (&MI != FoldMI)
+      LIS.InsertMachineInstrInMaps(MI);
+
+  // TII.foldMemoryOperand may have left some implicit operands on the
+  // instruction.  Strip them.
+  if (ImpReg)
+    for (unsigned i = FoldMI->getNumOperands(); i; --i) {
+      MachineOperand &MO = FoldMI->getOperand(i - 1);
+      if (!MO.isReg() || !MO.isImplicit())
+        break;
+      if (MO.getReg() == ImpReg)
+        FoldMI->RemoveOperand(i - 1);
+    }
+
+  DEBUG(dumpMachineInstrRangeWithSlotIndex(MIS.begin(), MIS.end(), LIS,
+                                           "folded"));
+
+  if (!WasCopy)
+    ++NumFolded;
+  else if (Ops.front().second == 0) {
+    ++NumSpills;
+    HSpiller.addToMergeableSpills(*FoldMI, StackSlot, Original);
+  } else
+    ++NumReloads;
+  return true;
+}
+
+
+
 /// foldMemoryOperand - Try folding stack slot references in Ops into their
 /// instructions.
 ///
@@ -841,8 +951,13 @@ void InlineSpiller::insertReload(unsigned NewVReg,
   MachineBasicBlock &MBB = *MI->getParent();
 
   MachineInstrSpan MIS(MI);
-  TII.loadRegFromStackSlot(MBB, MI, NewVReg, StackSlot,
-                           MRI.getRegClass(NewVReg), &TRI);
+  if (TII.protectRegisterSpill(NewVReg, MBB.getParent())) {
+    TII.loadRegFromStackSlot(MBB, MI, NewVReg, StackSlot,
+                             MRI.getRegClass(NewVReg), &TRI, true);
+  } else {
+    TII.loadRegFromStackSlot(MBB, MI, NewVReg, StackSlot,
+                             MRI.getRegClass(NewVReg), &TRI);
+  }
 
   LIS.InsertMachineInstrRangeInMaps(MIS.begin(), MI);
 
@@ -862,7 +977,7 @@ void InlineSpiller::insertSpill(unsigned NewVReg, bool isKill,
                             MRI.getRegClass(NewVReg), &TRI);
   } else {
     TII.storeRegToStackSlot(MBB, std::next(MI), NewVReg, isKill, StackSlot,
-                            MRI.getRegClass(NewVReg), &TRI);
+                            MRI.getRegClass(NewVReg), &TRI, 0);
   }
 
   LIS.InsertMachineInstrRangeInMaps(std::next(MI), MIS.end());
@@ -952,7 +1067,8 @@ void InlineSpiller::spillAroundUses(unsigned Reg) {
     MachineBasicBlock *MBB = MI->getParent();
     MachineFunction *MF = MBB->getParent();
     if (!TII.protectRegisterSpill(Reg, MF)
-        && foldMemoryOperand(Ops))
+        && foldMemoryOperand(Ops, true, true))
+    // if (foldMemoryOperand(Ops, true))
       continue;
 
     // Create a new virtual register for spill/fill.
@@ -963,13 +1079,11 @@ void InlineSpiller::spillAroundUses(unsigned Reg) {
       if (!TII.protectRegisterSpill(NewVReg, MF)) {
         insertReload(NewVReg, Idx, MI);
       } else {
-        // doesnt do anything atm insertmi == mi
-        MachineBasicBlock::iterator InsertMI = TII.findReloadPosition(MI);
-        insertReload(NewVReg, Idx, InsertMI);
+        insertReload(NewVReg, Idx, MI);
 
-        MachineInstrSpan MIS(InsertMI);
-        TII.compareRegAndStackSlot(*MBB, InsertMI, NewVReg, StackSlot+1, MRI, TRI);
-        LIS.InsertMachineInstrRangeInMaps(MIS.begin(), InsertMI);
+        // MachineInstrSpan MIS(MI);
+        // TII.compareRegAndStackSlot(*MBB, MI, NewVReg, StackSlot+1, MRI, TRI);
+        // LIS.InsertMachineInstrRangeInMaps(MIS.begin(), MI);
       }
     }
 
@@ -1454,7 +1568,7 @@ void HoistSpillHelper::hoistAllSpills() {
                                 MRI.getRegClass(LiveReg), &TRI);
       } else {
         TII.storeRegToStackSlot(*BB, MI, LiveReg, false, Slot,
-                                MRI.getRegClass(LiveReg), &TRI);
+                                MRI.getRegClass(LiveReg), &TRI, 2);
       }
 
       // TII.storeRegToStackSlot(*BB, MI, LiveReg, false, Slot,

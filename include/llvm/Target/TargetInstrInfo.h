@@ -782,6 +782,15 @@ public:
     llvm_unreachable("Target didn't implement "
                      "TargetInstrInfo::loadRegFromStackSlot!");
   }
+  virtual void loadRegFromStackSlot(MachineBasicBlock &MBB,
+                                    MachineBasicBlock::iterator MI,
+                                    unsigned DestReg, int FrameIndex,
+                                    const TargetRegisterClass *RC,
+                                    const TargetRegisterInfo *TRI,
+                                    bool duplicate) const {
+    llvm_unreachable("Target didn't implement "
+                     "TargetInstrInfo::loadRegFromStackSlot!");
+  }
 
   /// This function is called for all pseudo instructions
   /// that remain after register allocation. Many pseudo instructions are
@@ -800,6 +809,11 @@ public:
   MachineInstr *foldMemoryOperand(MachineInstr &MI, ArrayRef<unsigned> Ops,
                                   int FrameIndex,
                                   LiveIntervals *LIS = nullptr) const;
+
+  MachineInstr *foldMemoryOperand(MachineInstr &MI, ArrayRef<unsigned> Ops,
+                                  int FrameIndex,
+                                  bool duplicate,
+                                  LiveIntervals *LIS) const;
 
   /// Same as the previous version except it allows folding of any load and
   /// store from / to any address, not just from a specific stack slot.

@@ -1,3 +1,5 @@
+#include <string>
+#include <iostream>
 //===-- X86InstrInfo.cpp - X86 Instruction Information --------------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -4884,14 +4886,36 @@ void X86InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
       (Subtarget.getFrameLowering()->getStackAlignment() >= Alignment) ||
       RI.canRealignStack(MF);
   unsigned Opc = getStoreRegOpcode(SrcReg, RC, isAligned, Subtarget);
-  DebugLoc DL = MBB.findDebugLoc(MI);
+  DebugLoc oldDL = MBB.findDebugLoc(MI);
+  DebugLoc DL = DebugLoc();
   if (duplicate == 0) {
-    DL.metaData = "Spill-Primary";
+    DL.metaData = "primarySpill" + oldDL.metaData;
   }
   else if (duplicate == 1) {
-    DL.metaData = "Spill-Secondary";
+    DL.metaData = "secondarySpill" + oldDL.metaData;
+  }
+  else if (duplicate == 2) {
+    DL.metaData = "hoistSpill" + oldDL.metaData;
+  }
+  else if (duplicate == 3) {
+    DL.metaData = "hoistBBSpill" + oldDL.metaData;
+  }
+  else if (duplicate == 4) {
+    DL.metaData = "csrSpill" + oldDL.metaData;
+  }
+  else if (duplicate == 5) {
+    DL.metaData = "foldSpill" + oldDL.metaData;
+  }
+  else if (duplicate == 6) {
+    DL.metaData = "fold2Spill" + oldDL.metaData;
+  }
+  else {
+    DL.metaData = "OtherSpill" + oldDL.metaData;
   }
 
+  auto TII = MF.getSubtarget().getInstrInfo();
+  std::cout << std::string(MF.getName()) << " " << DL.metaData
+            << TII->getName(MI->getOpcode()) << std::endl;
   addFrameReference(BuildMI(MBB, MI, DL, get(Opc)), FrameIdx)
     .addReg(SrcReg, getKillRegState(isKill));
 }
@@ -4902,7 +4926,9 @@ void X86InstrInfo::spillRegToStackSlot(MachineBasicBlock &MBB,
                                        const TargetRegisterClass *RC,
                                        const TargetRegisterInfo *TRI) const {
   storeRegToStackSlot(MBB, MI, SrcReg, isKill, FrameIdx, RC, TRI, 0);
+  // --MI ??
   (--MI)->setFlag(MachineInstr::Spill);
+  // ++MI ??
 }
 
 void X86InstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
@@ -5017,21 +5043,53 @@ void X86InstrInfo::compareRegAndStackSlot(MachineBasicBlock &MBB,
                                           unsigned Reg, unsigned StackSlot,
                                           const MachineRegisterInfo &MRI,
                                           const TargetRegisterInfo &TRI) const {
-  DebugLoc DL = MBB.findDebugLoc(MI);
-  DL.metaData = "CJE";
+  DebugLoc oldDL = MBB.findDebugLoc(MI);
+  DebugLoc DL = DebugLoc();
+  DL.metaData = "CJE" + oldDL.metaData;
   unsigned Opc = getCompareRegAndStackOpcode(Reg, MRI, TRI);
-  addFrameReference(BuildMI(MBB, MI, DL, get(Opc), Reg).addReg(Reg), StackSlot);
+  addFrameReference(BuildMI(MBB, MI, DL, get(Opc)).addReg(Reg), StackSlot);
+  // MI = BuildMI(MBB, DL, TII.get(X86::CMP32ri8)).addReg(Reg).addImm(42);
 }
 
 void X86InstrInfo::populateExitBlock(MachineBasicBlock *exit) const {
-  BuildMI(*exit, exit->end(), DebugLoc(), get(X86::MOV32ri), X86::EDI).addImm(3);
-  if (!Subtarget.is64Bit())
-    BuildMI(*exit, exit->end(), DebugLoc(), get(X86::PUSH32r)).addReg(X86::EDI);
-  BuildMI(*exit, exit->end(), DebugLoc(), get(X86::CALL64pcrel32)).addExternalSymbol("exit");
+  // BuildMI(*exit, exit->end(), DebugLoc(), get(X86::NOOP));
+  // BuildMI(*exit, exit->end(), DebugLoc(), get(X86::MOV32ri), X86::EDI).addImm(3);
+  // BuildMI(*exit, exit->end(), DebugLoc(), get(X86::TRAP));
+  BuildMI(*exit, exit->end(), DebugLoc(), get(X86::MOV32ri), X86::EDI).addImm(52389);
+  // if (!Subtarget.is64Bit())
+    // BuildMI(*exit, exit->end(), DebugLoc(), get(X86::PUSH32r)).addReg(X86::EDI);
+  BuildMI(*exit, exit->end(), DebugLoc(), get(X86::TRAP));
+  // BuildMI(*exit, exit->end(), DebugLoc(), get(X86::CALL64pcrel32)).addExternalSymbol("exit");
 }
 
 
 
+void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+                                        MachineBasicBlock::iterator MI,
+                                        unsigned DestReg, int FrameIdx,
+                                        const TargetRegisterClass *RC,
+                                        const TargetRegisterInfo *TRI,
+                                        bool duplicate) const {
+  const MachineFunction &MF = *MBB.getParent();
+  unsigned Alignment = std::max<uint32_t>(RC->getSize(), 16);
+  bool isAligned =
+    (Subtarget.getFrameLowering()->getStackAlignment() >= Alignment) ||
+    RI.canRealignStack(MF);
+  unsigned Opc = getLoadRegOpcode(DestReg, RC, isAligned, Subtarget);
+  DebugLoc oldDL = MBB.findDebugLoc(MI);
+  DebugLoc DL = DebugLoc();
+  DL.metaData = "SpillLoad1" + oldDL.metaData;
+
+  // std::cout << getName(Opc) << "loadopcodes" << X86::MOV32mr << " " << X86::MOV32mr << std::endl;
+  // addFrameReference(BuildMI(MBB, MI, DL, get(Opc), DestReg), FrameIdx);
+  auto mi = BuildMI(MBB, MI, DL, get(Opc), DestReg);
+  addFrameReference(mi, FrameIdx);
+  if (duplicate) {
+    (--MI)->setFlag(MachineInstr::Reload);
+  } else {
+    (--MI)->setFlag(MachineInstr::NoSpill);
+  }
+}
 void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                         MachineBasicBlock::iterator MI,
                                         unsigned DestReg, int FrameIdx,
@@ -5043,7 +5101,9 @@ void X86InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
       (Subtarget.getFrameLowering()->getStackAlignment() >= Alignment) ||
       RI.canRealignStack(MF);
   unsigned Opc = getLoadRegOpcode(DestReg, RC, isAligned, Subtarget);
-  DebugLoc DL = MBB.findDebugLoc(MI);
+  DebugLoc oldDL = MBB.findDebugLoc(MI);
+  DebugLoc DL = DebugLoc();
+  DL.metaData = "SpillLoad2" + oldDL.metaData;
   addFrameReference(BuildMI(MBB, MI, DL, get(Opc), DestReg), FrameIdx);
 }
 

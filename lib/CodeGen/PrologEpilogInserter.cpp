@@ -488,7 +488,7 @@ static void insertCSRSpillsAndRestores(MachineFunction &Fn,
         unsigned Reg = CSI[i].getReg();
         const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
         TII.storeRegToStackSlot(*SaveBlock, I, Reg, true, CSI[i].getFrameIdx(),
-                                RC, TRI);
+                                RC, TRI, 4);
       }
     }
     // Update the live-in information of all the blocks up to the save point.
@@ -517,7 +517,7 @@ static void insertCSRSpillsAndRestores(MachineFunction &Fn,
       for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
         unsigned Reg = CSI[i].getReg();
         const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
-        TII.loadRegFromStackSlot(*MBB, I, Reg, CSI[i].getFrameIdx(), RC, TRI);
+        TII.loadRegFromStackSlot(*MBB, I, Reg, CSI[i].getFrameIdx(), RC, TRI, false);
         assert(I != MBB->begin() &&
                "loadRegFromStackSlot didn't insert any code!");
         // Insert in reverse order.  loadRegFromStackSlot can insert

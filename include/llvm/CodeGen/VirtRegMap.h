@@ -1,3 +1,4 @@
+#include <set>
 //===-- llvm/CodeGen/VirtRegMap.h - Virtual Register Map -*- C++ -*--------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -176,6 +177,9 @@ namespace llvm {
     /// @brief create a mapping for the specified virtual register to
     /// the specified stack slot
     void assignVirt2StackSlot(unsigned virtReg, int frameIndex);
+
+    bool hasFI(int frameIndex);
+    std::set<int> fis;
 
     void print(raw_ostream &OS, const Module* M = nullptr) const override;
     void dump() const;

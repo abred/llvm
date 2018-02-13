@@ -74,7 +74,9 @@ public:
     BundledPred  = 1 << 2,              // Instruction has bundled predecessors.
     BundledSucc  = 1 << 3,              // Instruction has bundled successors.
     ExitJump     = 1 << 4,
-    Spill        = 1 << 5
+    Spill        = 1 << 5,
+    Reload       = 1 << 6,
+    NoSpill      = 1 << 7
   };
 private:
   const MCInstrDesc *MCID;              // Instruction descriptor.

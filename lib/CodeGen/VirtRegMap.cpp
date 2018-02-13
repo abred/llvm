@@ -75,6 +75,7 @@ void VirtRegMap::grow() {
 unsigned VirtRegMap::createSpillSlot(const TargetRegisterClass *RC) {
   int SS = MF->getFrameInfo()->CreateSpillStackObject(RC->getSize(),
                                                       RC->getAlignment());
+  fis.insert(SS);
   ++NumSpillSlots;
   if (MF->protectSpills()) {
     // Create stack object for shadow register:
@@ -84,6 +85,21 @@ unsigned VirtRegMap::createSpillSlot(const TargetRegisterClass *RC) {
   }
 
   return SS;
+}
+
+bool VirtRegMap::hasFI(int frameIndex) {
+  if (fis.count(frameIndex) == 1) {
+    return true;
+  } else {
+    return false;
+  }
+  // for (int fi : Virt2StackSlotMap.storage_) {
+  //   // if (Virt2StackSlotMap[reg & ~(1u << 31)] == frameIndex) {
+  //   if (fi == frameIndex) {
+  //     return true;
+  //   }
+  // }
+  // return false;
 }
 
 bool VirtRegMap::hasPreferredPhys(unsigned VirtReg) {

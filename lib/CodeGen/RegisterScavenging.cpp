@@ -1,3 +1,4 @@
+#include <iostream>
 //===-- RegisterScavenging.cpp - Machine register scavenging --------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -426,7 +427,7 @@ unsigned RegScavenger::scavengeRegister(const TargetRegisterClass *RC,
     // method for saving registers:
     assert(0 && "should use target-specific method for "
            "saving/restoring register");
-
+    std::cout << "nooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo" << std::endl;
     // Spill the scavenged register before I.
     int FI = Scavenged[SI].FrameIndex;
     if (FI < FIB || FI >= FIE) {

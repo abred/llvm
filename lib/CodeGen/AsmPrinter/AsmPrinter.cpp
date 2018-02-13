@@ -926,7 +926,6 @@ void AsmPrinter::EmitFunctionBody() {
 
     EmitBasicBlockEnd(MBB);
   }
-  OutStreamer->AddComment("Does this work?");
 
   // If the function is empty and the object file uses .subsections_via_symbols,
   // then we need to emit *something* to the function body to prevent the

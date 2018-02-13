@@ -1,3 +1,6 @@
+#include <iostream>
+#include <string>
+#include "llvm/MC/MCContext.h"
 //===-- TargetInstrInfo.cpp - Target Instruction Information --------------===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -552,20 +555,120 @@ MachineInstr *TargetInstrInfo::foldMemoryOperand(MachineInstr &MI,
   MachineBasicBlock::iterator Pos = MI;
   const TargetRegisterInfo *TRI = MF.getSubtarget().getRegisterInfo();
 
-  bool duplicate = protectRegisterSpill(MO.getReg(), MBB->getParent());
+  bool dup = protectRegisterSpill(MO.getReg(), MBB->getParent());
+  // dup = false;
+  // if (MI.getFlag(MachineInstr::Spill) || MI.getFlag(MachineInstr::Reload))
+  {
+    // dup = true;
+  }
   if (Flags == MachineMemOperand::MOStore) {
-    if (duplicate)
+    if (dup)
       spillRegToStackSlot(*MBB, Pos, MO.getReg(), MO.isKill(), FI, RC, TRI);
     else
-      storeRegToStackSlot(*MBB, Pos, MO.getReg(), MO.isKill(), FI, RC, TRI);
+      storeRegToStackSlot(*MBB, Pos, MO.getReg(), MO.isKill(), FI, RC, TRI, 6);
   } else {
-    MachineInstr *InsertMI = Pos;
-    if (duplicate) InsertMI = findReloadPosition(Pos);
+    // MachineInstr *InsertMI = Pos;
+    // if (duplicate) InsertMI = findReloadPosition(Pos);
 
-    loadRegFromStackSlot(*MBB, InsertMI, MO.getReg(), FI, RC, TRI);
-    if (duplicate) compareRegAndStackSlot(*MBB, InsertMI, MO.getReg(), FI+1,
-                                          MBB->getParent()->getRegInfo(), *TRI);
-    Pos = InsertMI;
+    if (dup)
+      loadRegFromStackSlot(*MBB, Pos, MO.getReg(), FI, RC, TRI, true);
+    else
+      loadRegFromStackSlot(*MBB, Pos, MO.getReg(), FI, RC, TRI);
+    // if (duplicate)
+    //   (--Pos)->setFlag(MachineInstr::Reload);
+    // if (duplicate) compareRegAndStackSlot(*MBB, Pos, MO.getReg(), FI+1,
+    //                                       MBB->getParent()->getRegInfo(), *TRI);
+    // Pos = InsertMI;
+  }
+
+  return &*--Pos;
+}
+
+MachineInstr *TargetInstrInfo::foldMemoryOperand(MachineInstr &MI,
+                                                 ArrayRef<unsigned> Ops, int FI, bool duplicate,
+                                                 LiveIntervals *LIS) const {
+  auto Flags = MachineMemOperand::MONone;
+  for (unsigned i = 0, e = Ops.size(); i != e; ++i)
+    if (MI.getOperand(Ops[i]).isDef())
+      Flags |= MachineMemOperand::MOStore;
+    else
+      Flags |= MachineMemOperand::MOLoad;
+
+  MachineBasicBlock *MBB = MI.getParent();
+  assert(MBB && "foldMemoryOperand needs an inserted instruction");
+  MachineFunction &MF = *MBB->getParent();
+
+  MachineInstr *NewMI = nullptr;
+
+  if (MI.getOpcode() == TargetOpcode::STACKMAP ||
+      MI.getOpcode() == TargetOpcode::PATCHPOINT) {
+    // Fold stackmap/patchpoint.
+    NewMI = foldPatchpoint(MF, MI, Ops, FI, *this);
+    if (NewMI)
+      MBB->insert(MI, NewMI);
+  } else {
+    // Ask the target to do the actual folding.
+    NewMI = foldMemoryOperandImpl(MF, MI, Ops, MI, FI, LIS);
+  }
+
+  if (NewMI) {
+    NewMI->setMemRefs(MI.memoperands_begin(), MI.memoperands_end());
+    // Add a memory operand, foldMemoryOperandImpl doesn't do that.
+    assert((!(Flags & MachineMemOperand::MOStore) ||
+            NewMI->mayStore()) &&
+           "Folded a def to a non-store!");
+    assert((!(Flags & MachineMemOperand::MOLoad) ||
+            NewMI->mayLoad()) &&
+           "Folded a use to a non-load!");
+    const MachineFrameInfo &MFI = *MF.getFrameInfo();
+    assert(MFI.getObjectOffset(FI) != -1);
+    MachineMemOperand *MMO = MF.getMachineMemOperand(
+        MachinePointerInfo::getFixedStack(MF, FI), Flags, MFI.getObjectSize(FI),
+        MFI.getObjectAlignment(FI));
+    NewMI->addMemOperand(MF, MMO);
+
+    return NewMI;
+  }
+
+  // Straight COPY may fold as load/store.
+  if (!MI.isCopy() || Ops.size() != 1)
+    return nullptr;
+
+  const TargetRegisterClass *RC = canFoldCopy(MI, Ops[0]);
+  if (!RC)
+    return nullptr;
+
+  const MachineOperand &MO = MI.getOperand(1 - Ops[0]);
+  MachineBasicBlock::iterator Pos = MI;
+  const TargetRegisterInfo *TRI = MF.getSubtarget().getRegisterInfo();
+
+  bool dup = protectRegisterSpill(MO.getReg(), MBB->getParent());
+  // dup = false;
+  // if (MI.getFlag(MachineInstr::Spill) || MI.getFlag(MachineInstr::Reload))
+  {
+    // dup = true;
+  }
+  // std::cout << std::string(MF.getName()) << " "
+  //           << MF.getContext().getRegisterInfo()->getName(MO.getReg())
+  //           << std::endl;
+  if (Flags == MachineMemOperand::MOStore) {
+    if (dup)
+      spillRegToStackSlot(*MBB, Pos, MO.getReg(), MO.isKill(), FI, RC, TRI);
+    else
+      storeRegToStackSlot(*MBB, Pos, MO.getReg(), MO.isKill(), FI, RC, TRI, 5);
+  } else {
+    // MachineInstr *InsertMI = Pos;
+    // if (duplicate) InsertMI = findReloadPosition(Pos);
+
+    if (dup)
+      loadRegFromStackSlot(*MBB, Pos, MO.getReg(), FI, RC, TRI, true);
+    else
+      loadRegFromStackSlot(*MBB, Pos, MO.getReg(), FI, RC, TRI);
+    // if (duplicate)
+    //   (--Pos)->setFlag(MachineInstr::Reload);
+    // if (duplicate) compareRegAndStackSlot(*MBB, Pos, MO.getReg(), FI+1,
+    //                                       MBB->getParent()->getRegInfo(), *TRI);
+    // Pos = InsertMI;
   }
 
   return &*--Pos;

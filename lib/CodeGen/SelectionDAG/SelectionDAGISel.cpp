@@ -678,14 +678,14 @@ void SelectionDAGISel::SelectBasicBlock(BasicBlock::const_iterator Begin,
   {
     // llvm::outs() << "\nasdf\n";
     // I->print(llvm::outs());
-    Mds.clear();
-    MdNames.clear();
-    I->getAllMetadata(Mds);
-    CurDAG->getContext()->getMDKindNames(MdNames);
-    for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
-          II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-      // llvm::outs() << "name: " << MdNames[II->first] << "\n";
-    }
+    // Mds.clear();
+    // MdNames.clear();
+    // I->getAllMetadata(Mds);
+    // CurDAG->getContext()->getMDKindNames(MdNames);
+    // for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+    //       II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    //   // llvm::outs() << "name: " << MdNames[II->first] << "\n";
+    // }
 
     SDB->visit(*I);
   }
@@ -968,9 +968,9 @@ void SelectionDAGISel::DoInstructionSelection() {
       if (Node->use_empty())
         continue;
 
-      DebugLoc dl = Node->getDebugLoc();
-      dl.metaData += std::string("TEST") + std::string(Node->getOperationName());
-      Node->setDebugLoc(dl);
+      // DebugLoc dl = Node->getDebugLoc();
+      // dl.metaData += std::string("TEST") + std::string(Node->getOperationName());
+      // Node->setDebugLoc(dl);
       Select(Node);
     }
 

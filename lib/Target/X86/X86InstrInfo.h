@@ -349,6 +349,14 @@ public:
                             const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const override;
 
+  void loadRegFromStackSlot(MachineBasicBlock &MBB,
+                            MachineBasicBlock::iterator MI,
+                            unsigned DestReg, int FrameIndex,
+                            const TargetRegisterClass *RC,
+                            const TargetRegisterInfo *TRI,
+                            bool duplicate) const;
+
+
   void loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
                        SmallVectorImpl<MachineOperand> &Addr,
                        const TargetRegisterClass *RC,

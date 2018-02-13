@@ -1384,18 +1384,18 @@ bool FastISel::selectInstruction(const Instruction *I) {
   DbgLoc = I->getDebugLoc();
   // std::cout << "\nMD: " <<  std::string(I->getOpcodeName()) << std::endl;
   // DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
-  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
-  SmallVector<StringRef, 8> MdNames;
-  Mds.clear();
-  MdNames.clear();
-  I->getAllMetadata(Mds);
-  I->getContext().getMDKindNames(MdNames);
-  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
-        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-    // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
-    DbgLoc.metaData += MdNames[II->first];
-  }
-  DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
+  // SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  // SmallVector<StringRef, 8> MdNames;
+  // Mds.clear();
+  // MdNames.clear();
+  // I->getAllMetadata(Mds);
+  // I->getContext().getMDKindNames(MdNames);
+  // for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+  //       II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+  //   // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
+  //   DbgLoc.metaData += MdNames[II->first];
+  // }
+  // DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
   // std::cout << "DD: " << DbgLoc.metaData << " " << &DbgLoc << std::endl;
   SavedInsertPt = FuncInfo.InsertPt;
 
@@ -1442,16 +1442,16 @@ bool FastISel::selectInstruction(const Instruction *I) {
 
     // SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
     // SmallVector<StringRef, 8> MdNames;
-    Mds.clear();
-    MdNames.clear();
-    I->getAllMetadata(Mds);
-    I->getContext().getMDKindNames(MdNames);
-    for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
-          II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-      // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
-      DbgLoc.metaData += MdNames[II->first];
-    }
-    DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
+    // Mds.clear();
+    // MdNames.clear();
+    // I->getAllMetadata(Mds);
+    // I->getContext().getMDKindNames(MdNames);
+    // for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+    //       II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    //   // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
+    //   DbgLoc.metaData += MdNames[II->first];
+    // }
+    // DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
     // DbgLoc.metaData += cast<MDString>(I->getMetadata("my.md.name")->getOperand(0))->getString();
     return true;
   }
@@ -1463,16 +1463,16 @@ bool FastISel::selectInstruction(const Instruction *I) {
   DbgLoc = DebugLoc();
   // SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
   // SmallVector<StringRef, 8> MdNames;
-  Mds.clear();
-  MdNames.clear();
-  I->getAllMetadata(Mds);
-  I->getContext().getMDKindNames(MdNames);
-  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
-        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
-    // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
-    DbgLoc.metaData += MdNames[II->first];
-  }
-  DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
+  // Mds.clear();
+  // MdNames.clear();
+  // I->getAllMetadata(Mds);
+  // I->getContext().getMDKindNames(MdNames);
+  // for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+  //       II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+  //   // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
+  //   DbgLoc.metaData += MdNames[II->first];
+  // }
+  // DbgLoc.metaData += std::string("TEST") + std::string(I->getOpcodeName());
   // Undo phi node updates, because they will be added again by SelectionDAG.
   if (isa<TerminatorInst>(I)) {
     // PHI node handling may have generated local value instructions. 
