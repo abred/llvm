@@ -504,12 +504,11 @@ BitVector X86RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   }
 
   if (MF.protectSpills()) {
-    // Reserved.reset(X86::R15D);
-    // Reserved.set(X86::BL);
-    // Reserved.set(X86::BH);
-    // Reserved.set(X86::BX);
-    // Reserved.set(X86::EBX);
-    // Reserved.set(X86::RBX);
+    Reserved.set(X86::BL);
+    Reserved.set(X86::BH);
+    Reserved.set(X86::BX);
+    Reserved.set(X86::EBX);
+    Reserved.set(X86::RBX);
   }
 
   return Reserved;

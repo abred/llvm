@@ -490,6 +490,17 @@ bool X86FastISel::X86FastEmitLoad(EVT VT, X86AddressMode &AM,
 
   // std::cout << "\nEE: " << DbgLoc.metaData << " " << &DbgLoc << std::endl;
   ResultReg = createResultReg(RC);
+  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  SmallVector<StringRef, 8> MdNames;
+  Mds.clear();
+  MdNames.clear();
+  Inst->getAllMetadata(Mds);
+  Inst->getContext().getMDKindNames(MdNames);
+  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
+    DbgLoc.metaData += MdNames[II->first];
+  }
   MachineInstrBuilder MIB =
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(Opc), ResultReg);
   addFullAddress(MIB, AM);
@@ -647,6 +658,17 @@ bool X86FastISel::X86FastEmitStore(EVT VT, unsigned ValReg, bool ValIsKill,
   // same registers behind the scene and actually why it did not trigger
   // any bugs before.
   ValReg = constrainOperandRegClass(Desc, ValReg, Desc.getNumOperands() - 1);
+  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  SmallVector<StringRef, 8> MdNames;
+  Mds.clear();
+  MdNames.clear();
+  Inst->getAllMetadata(Mds);
+  Inst->getContext().getMDKindNames(MdNames);
+  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
+    DbgLoc.metaData += MdNames[II->first];
+  }
   MachineInstrBuilder MIB =
       BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, Desc);
   addFullAddress(MIB, AM).addReg(ValReg, getKillRegState(ValIsKill));
@@ -1406,7 +1428,19 @@ bool X86FastISel::X86FastEmitCompare(const Value *Op0, const Value *Op1, EVT VT,
 
   unsigned Op1Reg = getRegForValue(Op1);
   if (Op1Reg == 0) return false;
-  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, CurDbgLoc, TII.get(CompareOpc))
+  DebugLoc DbgLoc = CurDbgLoc;
+  SmallVector<std::pair<unsigned, MDNode*>, 8> Mds;
+  SmallVector<StringRef, 8> MdNames;
+  Mds.clear();
+  MdNames.clear();
+  Inst->getAllMetadata(Mds);
+  Inst->getContext().getMDKindNames(MdNames);
+  for(SmallVector<std::pair<unsigned, MDNode*>, 8>::iterator
+        II = Mds.begin(), EE = Mds.end(); II !=EE; ++II) {
+    // llvm::outs() << "dfgh: " << MdNames[II->first] << "\n";
+    DbgLoc.metaData += MdNames[II->first];
+  }
+  BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc, TII.get(CompareOpc))
     .addReg(Op0Reg)
     .addReg(Op1Reg);
 
@@ -3408,7 +3442,7 @@ bool X86FastISel::fastLowerCall(CallLoweringInfo &CLI) {
 
 bool
 X86FastISel::fastSelectInstruction(const Instruction *I)  {
-  // Inst = I;
+  Inst = I;
   switch (I->getOpcode()) {
   default: break;
   case Instruction::Load:

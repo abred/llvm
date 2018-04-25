@@ -208,7 +208,7 @@ bool ProtectSpillSupportPass::findReg(MachineBasicBlock::iterator MI) {
     REG = STI.is64Bit() ? X86::RBP : X86::EBP;
   }
   else {
-    std::cout << "oooooooooooyerteghsdfgdooooooooo" << std::endl;
+    // std::cout << "oooooooooooyerteghsdfgdooooooooo" << std::endl;
     return false;
   }
   return true;
@@ -241,7 +241,6 @@ MachineBasicBlock::iterator ProtectSpillSupportPass::insertDoubleXchange(Machine
     REG = STI.is64Bit() ? X86::RBP : X86::EBP;
   }
   else {
-    std::cout << "asdfdddddddddddddddddddddddddddddddddddddddddddddddddddddd" << std::endl;
     return nullptr;
   }
 
